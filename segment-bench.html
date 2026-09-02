@@ -314,10 +314,13 @@
 
   <div class="panel save-bar">
     <div class="save-row">
-      <button id="btn-save-file" class="primary">💾 Save as file&hellip;</button>
-      <span class="save-name">as <b id="save-name-preview"></b>.html</span>
+      <button id="btn-save-file" class="primary">💾 Save data file&hellip;</button>
+      <span class="save-name">as <b id="save-name-preview"></b>.json</span>
+      <button id="btn-load-file">📂 Load data file&hellip;</button>
+      <input type="file" id="load-file-input" accept="application/json,.json" hidden>
     </div>
-    <p class="save-hint">Nothing here is saved automatically -- edits are exploratory until you click this. Reloading or reopening this file always shows what it was last saved with, never a mid-experiment tweak. "Save as file" downloads a complete, independent copy under the name shown; with your browser set to ask where to save, the dialog will warn you if that name already exists so you can increment it. Open two different saved files in two tabs to compare them side by side.</p>
+    <p class="save-hint">Nothing here is saved automatically -- edits are exploratory until you click "Save data file". That downloads a plain JSON file -- tiers, brightness, and the step list, nothing else -- under the name shown; with your browser set to ask where to save, the dialog will warn you if that name already exists so you can increment it. Reopen a saved sequence later with "Load data file", right here on THIS page. A data file never carries its own copy of this tool's display logic, so it can't go stale the way a saved copy of the whole page could: if this page ever gets a fix (a new supported character, a display correction), every data file you load through it benefits immediately -- nothing about a sequence you saved months ago needs re-saving. Open two different data files, one after another, to compare sequences.</p>
+    <p class="save-hint" id="load-status"></p>
   </div>
 
   <div class="hero">
@@ -425,7 +428,17 @@
     "u": { seg: SEG_C|SEG_D|SEG_E, verified: true },
     "V": { seg: SEG_C|SEG_D|SEG_E, verified: true },
     "U": { seg: SEG_B|SEG_C|SEG_D|SEG_E|SEG_F, verified: true },
+    // R, N, D, T, B, Q, Y have no distinct uppercase shape a 7-segment digit can draw -- the physically
+    // renderable form is what's normally thought of as the "lowercase" glyph, same as I/i are the odd
+    // one out in the other direction. Earlier revisions of this map only registered the lowercase key
+    // for these seven letters, so typing the (very natural, all-caps) uppercase form -- e.g. "OVR",
+    // "END" -- hit a case-sensitive object-key miss and rendered as a silent blank instead of falling
+    // back to the only shape that actually exists. Both keys now point at the same segment value, same
+    // as every other letter in this map already does (e.g. "S"/"s", "V"/"v", "C"/"c"): "OVR" reads as
+    // "Ovr" and "END" reads as "End" on screen, which is correct -- that IS what those letters look
+    // like on a 7-segment digit, in either case.
     "r": { seg: SEG_E|SEG_G, verified: true },
+    "R": { seg: SEG_E|SEG_G, verified: true },
     "P": { seg: SEG_A|SEG_B|SEG_E|SEG_F|SEG_G, verified: true },
     "p": { seg: SEG_A|SEG_B|SEG_E|SEG_F|SEG_G, verified: true },
     "S": { seg: SEG_A|SEG_C|SEG_D|SEG_F|SEG_G, verified: true },
@@ -440,14 +453,18 @@
     // "I" and "i" different segment counts to look different on screen.
     "I": { seg: SEG_B|SEG_C, verified: false },
     "n": { seg: SEG_C|SEG_E|SEG_G, verified: true },
+    "N": { seg: SEG_C|SEG_E|SEG_G, verified: true },
     "d": { seg: SEG_B|SEG_C|SEG_D|SEG_E|SEG_G, verified: true },
+    "D": { seg: SEG_B|SEG_C|SEG_D|SEG_E|SEG_G, verified: true },
     "t": { seg: SEG_D|SEG_E|SEG_F|SEG_G, verified: true },
+    "T": { seg: SEG_D|SEG_E|SEG_F|SEG_G, verified: true },
     "F": { seg: SEG_A|SEG_E|SEG_F|SEG_G, verified: true },
     "f": { seg: SEG_A|SEG_E|SEG_F|SEG_G, verified: true },
 
     "A": { seg: SEG_A|SEG_B|SEG_C|SEG_E|SEG_F|SEG_G, verified: false },
     "a": { seg: SEG_A|SEG_B|SEG_C|SEG_E|SEG_F|SEG_G, verified: false },
     "b": { seg: SEG_C|SEG_D|SEG_E|SEG_F|SEG_G, verified: false },
+    "B": { seg: SEG_C|SEG_D|SEG_E|SEG_F|SEG_G, verified: false },
     "C": { seg: SEG_A|SEG_D|SEG_E|SEG_F, verified: false },
     "c": { seg: SEG_D|SEG_E|SEG_G, verified: false },
     "G": { seg: SEG_A|SEG_C|SEG_D|SEG_E|SEG_F, verified: false },
@@ -458,7 +475,9 @@
     "L": { seg: SEG_D|SEG_E|SEG_F, verified: true },
     "l": { seg: SEG_D|SEG_E|SEG_F, verified: true },
     "q": { seg: SEG_A|SEG_B|SEG_C|SEG_F|SEG_G, verified: false },
+    "Q": { seg: SEG_A|SEG_B|SEG_C|SEG_F|SEG_G, verified: false },
     "y": { seg: SEG_B|SEG_C|SEG_D|SEG_F|SEG_G, verified: false },
+    "Y": { seg: SEG_B|SEG_C|SEG_D|SEG_F|SEG_G, verified: false },
     "Z": { seg: SEG_A|SEG_B|SEG_D|SEG_E|SEG_G, verified: false },
     "z": { seg: SEG_A|SEG_B|SEG_D|SEG_E|SEG_G, verified: false },
     "-": { seg: SEG_G, verified: false },
@@ -600,29 +619,33 @@
   };
 
   // ================= State =================
-  // Deliberately NOT auto-persisted anywhere. Earlier revisions of this file autosaved every edit to
-  // localStorage, on the theory that it was just a convenience -- but that meant an exploratory tweak
-  // ("let me just see what this looks like") silently became the new normal the next time this exact
-  // file was reopened, with no way to tell an experiment from a real revision. That's backwards for a
-  // bench tool, where trying something you don't intend to keep is the whole point. Now the ONLY thing
-  // that makes an edit permanent is clicking "Save as file", which produces a new, separately-named
-  // file via your browser's own save dialog. Reloading this page, or reopening this exact file later,
-  // always shows exactly what it last carried as EMBEDDED_INITIAL_STATE (or the built-in example, for
-  // an unmodified copy of the tool) -- never whatever you were mid-experiment with.
+  // Deliberately NOT auto-persisted anywhere, and -- just as deliberately -- NEVER embedded into a
+  // saved copy of this page. Earlier revisions of this tool went through two other designs, both with
+  // the same underlying flaw: first, autosaving every edit to localStorage, so an exploratory tweak
+  // ("let me just see what this looks like") silently became the new normal the next time this file
+  // was reopened; then, a "Save as file" that baked the current sequence AND a full snapshot of this
+  // page's own <script> into one self-contained downloaded .html. That second design fixed the
+  // autosave problem but created a worse one: every saved sequence became its own permanently-frozen
+  // fork of the entire tool. If this page's display logic ever had a bug -- and it did (see the
+  // CHAR_MAP comments on R/N/D/etc. above) -- every already-saved sequence had silently baked that
+  // exact bug in forever, immune to any later fix, because each one was carrying its own private copy
+  // of the code that produced it. Fixing this page could never fix them retroactively.
   //
-  // Set (via string replacement, not by hand) at "Save as file" time, so a freshly downloaded copy
-  // opens showing exactly the sequence it was saved from instead of the generic example -- see
-  // buildStandaloneHTML(). Left null in the working copy of this file.
-  const EMBEDDED_INITIAL_STATE = null; // __EMBEDDED_STATE_MARKER__
-
-  let state = structuredClone(EMBEDDED_INITIAL_STATE || DEFAULTS);
+  // So now: this page holds ONLY the display/editing logic, never a specific sequence. A sequence is a
+  // plain JSON data file -- tiers, brightness, steps, nothing else -- saved and reopened via the
+  // buttons in the save bar (see wireSaveDataFile/wireLoadDataFile below). Because a data file carries
+  // no code of its own, reopening one always plays it back through THIS page's current logic -- so a
+  // fix made here benefits every sequence ever saved, retroactively, the next time it's loaded. The
+  // working copy of this page always starts from the built-in example below; load a data file to work
+  // on something else.
+  let state = structuredClone(DEFAULTS);
 
   // Every step/tier/brightness edit still calls this, exactly as before -- it's just a no-op for
   // persistence now (see the comment above). Kept as a named function, rather than removing every call
   // site, so the rest of the UI needs no other changes: something CHANGED in memory, but nothing is
-  // written anywhere until "Save as file" is clicked.
+  // written anywhere until "Save data file" is clicked.
   function saveState() {
-    updateSaveNamePreview(); // keep the "as <name>.html" preview live with every edit, not just after a full re-render
+    updateSaveNamePreview(); // keep the "as <name>.json" preview live with every edit, not just after a full re-render
   }
 
   // ================= Playback =================
@@ -757,6 +780,21 @@
       });
       fields.appendChild(kindToggle);
 
+      // Jumps the live Hero display to step i and resets its timer, so an edit to a step ALWAYS shows
+      // up on screen immediately, no matter what autoplay happens to be showing at that instant.
+      // Before this existed, the display only repainted for edits to the currently-*playing* step
+      // (`if (i === currentStep) renderCurrentStep()`) -- with autoplay running by default and cycling
+      // every 120-600ms per step, whatever you were typing into step 9 could easily go unconfirmed
+      // on screen for the entire time you were editing it, because the display was busy showing some
+      // unrelated step mid-cycle. Resetting stepStart here also means autoplay won't immediately steal
+      // the display back away mid-edit: it holds on step i for a full fresh duration from the moment
+      // of this edit.
+      function focusStepOnDisplay() {
+        currentStep = i;
+        stepStart = performance.now();
+        renderCurrentStep();
+      }
+
       if (step.kind === "text") {
         const input = document.createElement("input");
         input.type = "text";
@@ -767,7 +805,7 @@
           step.text = e.target.value;
           saveState();
           renderWarning(warnEl, step);
-          if (i === currentStep) renderCurrentStep();
+          focusStepOnDisplay();
         });
         fields.appendChild(input);
       } else {
@@ -777,7 +815,7 @@
         input.addEventListener("input", (e) => {
           step.number = parseInt(e.target.value, 10) || 0;
           saveState();
-          if (i === currentStep) renderCurrentStep();
+          focusStepOnDisplay();
         });
         fields.appendChild(input);
       }
@@ -794,6 +832,7 @@
         step.tier = e.target.value;
         saveState();
         renderStepsList();
+        focusStepOnDisplay(); // after renderStepsList(), so the rebuilt row gets the "current" outline
       });
       fields.appendChild(tierSelect);
 
@@ -807,6 +846,7 @@
         customInput.addEventListener("input", (e) => {
           step.customMs = parseInt(e.target.value, 10) || 0;
           saveState();
+          focusStepOnDisplay();
         });
         fields.appendChild(customInput);
       }
@@ -845,12 +885,46 @@
   }
 
   // ================= Alphabet reference =================
+  // Builds one entry per letter A-Z (plus trailing non-letter symbols), using whatever key(s) CHAR_MAP
+  // actually defines for it. When a letter's upper- and lowercase forms paint the IDENTICAL segments --
+  // true for most letters here, since a 7-segment digit usually can't draw two different shapes for one
+  // letter's two cases -- showing both would just be the same glyph twice in a row; collapse them into
+  // ONE cell labeled "A/a" instead. When they genuinely differ (C/c, H/h, I/i, O/o, U/u -- these ARE
+  // distinguishable on a 7-segment digit, and I/i is a deliberate bench-only distinction, see its
+  // comment on the CHAR_MAP entry above), keep both cells, uppercase first. A letter with only one case
+  // registered at all just gets its own single, plainly-labeled cell. This is purely a DISPLAY grouping:
+  // CHAR_MAP's own key order and entries are untouched (it's organized there for the source comments --
+  // verified letters, then playground approximations -- a separate concern from how the grid presents).
+  function alphabetEntries() {
+    const entries = [];
+    for (let code = 65; code <= 90; code++) { // "A" .. "Z"
+      const upper = String.fromCharCode(code);
+      const lower = upper.toLowerCase();
+      const hasUpper = upper in CHAR_MAP;
+      const hasLower = lower in CHAR_MAP;
+      if (hasUpper && hasLower) {
+        if (CHAR_MAP[upper].seg === CHAR_MAP[lower].seg) {
+          entries.push({ label: `${upper}/${lower}`, seg: CHAR_MAP[upper].seg, verified: CHAR_MAP[upper].verified });
+        } else {
+          entries.push({ label: upper, seg: CHAR_MAP[upper].seg, verified: CHAR_MAP[upper].verified });
+          entries.push({ label: lower, seg: CHAR_MAP[lower].seg, verified: CHAR_MAP[lower].verified });
+        }
+      } else if (hasUpper) {
+        entries.push({ label: upper, seg: CHAR_MAP[upper].seg, verified: CHAR_MAP[upper].verified });
+      } else if (hasLower) {
+        entries.push({ label: lower, seg: CHAR_MAP[lower].seg, verified: CHAR_MAP[lower].verified });
+      }
+    }
+    Object.keys(CHAR_MAP)
+      .filter((c) => c !== " " && !/[a-zA-Z]/.test(c))
+      .forEach((c) => entries.push({ label: c, seg: CHAR_MAP[c].seg, verified: CHAR_MAP[c].verified }));
+    return entries;
+  }
+
   function renderAlphabet() {
     const grid = document.getElementById("alphabet-grid");
     grid.innerHTML = "";
-    const chars = Object.keys(CHAR_MAP).filter((c) => c !== " ");
-    chars.forEach((c) => {
-      const entry = CHAR_MAP[c];
+    alphabetEntries().forEach((entry) => {
       const cell = document.createElement("div");
       cell.className = "glyph-cell" + (entry.verified ? "" : " playground");
       const svg = document.createElementNS(NS, "svg");
@@ -859,7 +933,7 @@
       paintDigits(cellsArr, [entry.seg], 1);
       cell.appendChild(svg);
       const label = document.createElement("span");
-      label.textContent = c === "" ? "␣" : c;
+      label.textContent = entry.label === "" ? "␣" : entry.label;
       cell.appendChild(label);
       grid.appendChild(cell);
     });
@@ -910,6 +984,13 @@
   //     sequence would collide on that first letter, both escalate to the shortest prefix that tells
   //     them apart (falling back to the whole word, max 4 chars, if they share every character up to
   //     the shorter one's length).
+  //   - case is never folded here: "Hi" and "HI" are different words as far as naming is concerned
+  //     (this display is case-sensitive -- see the CHAR_MAP comment on R/N/D/etc. -- so they can be
+  //     genuinely different things on screen) and get their own abbreviations, escalating apart from
+  //     each other same as any other two words that share a prefix. If that ever makes two DIFFERENT
+  //     sequences suggest the identical filename, that's just an ordinary filename collision -- your
+  //     browser's save dialog already flags an existing name so you can increment it (see the save
+  //     bar's hint text); naming doesn't need its own separate collision handling for that.
   function speedCode(step) {
     if (step.tier === "long") return "L";
     if (step.tier === "medium") return "M";
@@ -925,7 +1006,7 @@
       // purposes, not a word that starts with a blank character. Whitespace-only text (all blanks) is
       // handled as a blank step below, same as an empty string.
       if (s.kind === "text" && s.text && s.text.trim()) {
-        const w = s.text.trim().toUpperCase();
+        const w = s.text.trim();
         if (!words.includes(w)) words.push(w);
       }
     });
@@ -952,56 +1033,108 @@
     const parts = steps.map((s) => {
       if (s.kind === "number") return "#" + speedCode(s);
       if (!s.text || !s.text.trim()) return speedCode(s); // blank, or whitespace-only -- same treatment
-      const w = s.text.trim().toUpperCase();
+      const w = s.text.trim();
       return (abbrev[w] || w) + speedCode(s);
     });
     return parts.join("-");
   }
 
-  // ================= Save as standalone file =================
-  // Turns the CURRENTLY RUNNING page into a new, fully independent .html file with today's steps/tiers
-  // baked in as its own starting point -- so opening that saved file fresh (empty localStorage, new
-  // path) shows exactly this sequence, not the generic example. Works by taking a live snapshot of
-  // this document (document.documentElement.outerHTML already includes this file's own <script> source
-  // verbatim, since browsers serialize script tag text as part of outerHTML) and swapping the
-  // EMBEDDED_INITIAL_STATE marker line for one with this state's data filled in. Any stale markup the
-  // snapshot also happens to catch (rendered step rows, painted segments, etc.) is harmless -- init()
-  // rebuilds all of that from state on load regardless of what shipped in the static HTML.
-  // A REGEX, not the plain marker text as a string -- the plain text also appears (necessarily) inside
-  // this very line, quoted as a string literal, and a naive substring replace would match THAT
-  // occurrence too, corrupting the downloaded copy's own source. The regex's escaped `\/\/` differs
-  // from that string's literal `//`, so it only matches the real declaration line.
-  const EMBEDDED_MARKER_RE = /const EMBEDDED_INITIAL_STATE = null; \/\/ __EMBEDDED_STATE_MARKER__/;
-
-  function buildStandaloneHTML(variantName) {
-    const liveHTML = "<!doctype html>\n" + document.documentElement.outerHTML;
-    const embedded = JSON.stringify({ tiers: state.tiers, brightness: state.brightness, steps: state.steps });
-    const replacementLine = `const EMBEDDED_INITIAL_STATE = ${embedded}; // __EMBEDDED_STATE_MARKER__`;
-    // Function-form replacer: a plain string replacement would treat "$&", "$$", etc. inside step text
-    // as special patterns if the user ever typed one; a function replacer inserts it literally instead.
-    let html = liveHTML.replace(EMBEDDED_MARKER_RE, () => replacementLine);
-    html = html.replace(/<title>[^<]*<\/title>/, () => `<title>Segment Bench — ${variantName}</title>`);
-    return html;
+  // ================= Save / load data file =================
+  // A data file is intentionally the SAME shape state already carries internally -- tiers, brightness,
+  // steps -- plus a "name" field (the same suggested name shown in the save bar and used for the
+  // filename) purely as a human-readable label for anyone opening the raw JSON. No code, no HTML, no
+  // copy of this page: see the long comment on `state` above for why that separation is the whole point.
+  function buildDataFileJSON() {
+    return JSON.stringify(
+      { name: suggestVariantName(state.steps), tiers: state.tiers, brightness: state.brightness, steps: state.steps },
+      null,
+      2
+    );
   }
 
   function updateSaveNamePreview() {
     document.getElementById("save-name-preview").textContent = suggestVariantName(state.steps);
   }
 
-  function wireSaveAsFile() {
+  function wireSaveDataFile() {
     updateSaveNamePreview();
     document.getElementById("btn-save-file").addEventListener("click", () => {
       const name = suggestVariantName(state.steps);
-      const html = buildStandaloneHTML(name);
-      const blob = new Blob([html], { type: "text/html" });
+      const json = buildDataFileJSON();
+      const blob = new Blob([json], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = name + ".html";
+      a.download = name + ".json";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    });
+  }
+
+  // Accepts either a file saved by THIS save/load pair ({tiers, brightness, steps}) or one produced by
+  // "Export config" ({name, tiers, steps}, no brightness -- see buildExportJSON below) -- the two JSON
+  // shapes are close enough that round-tripping either back into the bench is just useful, not
+  // ambiguous. Missing/invalid tiers or brightness fall back to DEFAULTS rather than failing the whole
+  // load, since those are recoverable; a missing/empty `steps` array is not, and is rejected outright.
+  function parseDataFile(text) {
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      throw new Error("That's not valid JSON.");
+    }
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.steps) || parsed.steps.length === 0) {
+      throw new Error('Missing a non-empty "steps" array -- is this a Segment Bench data file?');
+    }
+    const tiers = parsed.tiers && typeof parsed.tiers === "object" ? parsed.tiers : {};
+    return {
+      tiers: {
+        long: Number.isFinite(tiers.long) ? tiers.long : DEFAULTS.tiers.long,
+        medium: Number.isFinite(tiers.medium) ? tiers.medium : DEFAULTS.tiers.medium,
+        short: Number.isFinite(tiers.short) ? tiers.short : DEFAULTS.tiers.short,
+      },
+      brightness: Number.isFinite(parsed.brightness) ? parsed.brightness : DEFAULTS.brightness,
+      steps: parsed.steps,
+    };
+  }
+
+  function wireLoadDataFile() {
+    const input = document.getElementById("load-file-input");
+    const status = document.getElementById("load-status");
+    document.getElementById("btn-load-file").addEventListener("click", () => {
+      status.textContent = "";
+      input.click();
+    });
+    input.addEventListener("change", async () => {
+      const file = input.files[0];
+      input.value = ""; // reset so picking the exact same filename again still fires "change"
+      if (!file) return;
+      try {
+        const text = await file.text();
+        state = parseDataFile(text);
+        currentStep = findNextEnabledStep(-1); // don't land on a step this file left disabled
+        stepStart = performance.now();
+        renderStepsList();
+        renderCurrentStep();
+        // Re-sync the timing-panel inputs to the newly-loaded tiers. NOT a second wireTierControls()
+        // call -- that would attach a second set of "input" listeners on top of the ones from init(),
+        // double-writing state.tiers on every future drag. The existing listeners already read/write
+        // whatever `state` currently refers to (closures see the reassignment above just fine), so all
+        // that's left is reflecting the loaded values into the inputs themselves.
+        ["long", "medium", "short"].forEach((t) => {
+          document.getElementById(`tier-${t}`).value = state.tiers[t];
+          document.getElementById(`tier-${t}-range`).value = state.tiers[t];
+        });
+        renderTierActuals();
+        document.getElementById("brightness").value = state.brightness;
+        document.getElementById("brightness-val").textContent = state.brightness;
+        updateSaveNamePreview();
+        status.textContent = `Loaded "${file.name}".`;
+      } catch (err) {
+        status.textContent = `Couldn't load that file: ${err.message}`;
+      }
     });
   }
 
@@ -1098,7 +1231,8 @@
     currentStep = findNextEnabledStep(-1); // don't start on a step a previous visit left disabled
     renderStepsList();
     renderAlphabet();
-    wireSaveAsFile();
+    wireSaveDataFile();
+    wireLoadDataFile();
     wireTierControls();
     wireTransport();
     wireAddButtons();
