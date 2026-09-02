@@ -1,0 +1,1112 @@
+<title>Segment Bench</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --panel: #14151a;
+    --display-glass: #1d0f0b;
+    --seg-lit: #ff4423;
+    --seg-lit-glow: #ff6a3d;
+    --seg-unlit: #3c1811;
+    --accent: #4fd1c5;
+    --accent-dim: #2c6b66;
+    --ink: #e9e7e2;
+    --ink-muted: #90949c;
+    --ink-faint: #5b5f68;
+    --surface: #21242c;
+    --surface-raised: #2a2e38;
+    --border: #34394480;
+    --danger: #ff6b6b;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--panel);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    margin: 0;
+    padding: 32px 20px 64px;
+    line-height: 1.5;
+  }
+
+  h1, h2, h3 { font-family: "IBM Plex Mono", ui-monospace, monospace; text-wrap: balance; }
+
+  h2 {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+
+  .app {
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .masthead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .masthead h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+
+  .masthead p {
+    margin: 0;
+    color: var(--ink-muted);
+    font-size: 13px;
+    max-width: 46ch;
+  }
+
+  /* ---------- Save bar ---------- */
+  .save-bar { padding: 16px 20px; }
+  .save-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .save-name {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .save-name b { color: var(--accent); font-weight: 500; }
+  .save-hint {
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin: 10px 0 0;
+  }
+
+  /* ---------- Hero: display + transport ---------- */
+  .hero {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+  }
+
+  .display-panel {
+    background: var(--display-glass);
+    border-radius: 8px;
+    padding: 28px clamp(16px, 5vw, 40px);
+    box-shadow: inset 0 2px 10px #00000080;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  #display-svg { width: 100%; max-width: 460px; height: auto; display: block; }
+
+  .seg-rect { transition: fill 60ms linear, filter 60ms linear; }
+  .seg-rect.lit { fill: var(--seg-lit); filter: drop-shadow(0 0 6px var(--seg-lit-glow)); }
+  .seg-rect.unlit { fill: var(--seg-unlit); filter: none; }
+
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+  }
+
+  button {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    font-weight: 500;
+    background: var(--surface-raised);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 9px 14px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent-dim); color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent-dim); border-color: var(--accent); color: #eafffb; }
+  button.primary:hover { background: var(--accent); color: #0c1a19; }
+  button.icon { padding: 9px 11px; }
+  button.small { padding: 5px 9px; font-size: 11px; }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+  .step-indicator {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-muted);
+    font-variant-numeric: tabular-nums;
+    margin-left: auto;
+  }
+  .step-indicator b { color: var(--ink); }
+
+  .brightness-control { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-muted); }
+  input[type="range"] { accent-color: var(--accent); }
+
+  /* ---------- Workbench ---------- */
+  .workbench {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 760px) {
+    .workbench { grid-template-columns: 1fr; }
+    .step-indicator { margin-left: 0; width: 100%; text-align: center; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  /* ---------- Message step editor ---------- */
+  #steps-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+
+  .step-row {
+    display: grid;
+    grid-template-columns: 22px 20px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  .step-row.current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .step-row.disabled { opacity: 0.45; }
+  .step-enabled { accent-color: var(--accent); cursor: pointer; }
+
+  .step-idx {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+
+  .step-fields { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .kind-toggle { display: flex; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; }
+  .kind-toggle button {
+    border: none; border-radius: 0; padding: 6px 9px; font-size: 11px; background: transparent;
+  }
+  .kind-toggle button.active { background: var(--accent-dim); color: #eafffb; }
+
+  .step-fields input[type="text"] {
+    width: 5.5em;
+    font-family: "IBM Plex Mono", monospace;
+    text-transform: none;
+  }
+  .step-fields input[type="number"] { width: 5.5em; font-family: "IBM Plex Mono", monospace; }
+
+  input[type="text"], input[type="number"], select {
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .warn { font-size: 11px; color: var(--danger); grid-column: 1 / -1; }
+
+  .step-actions { display: flex; gap: 4px; }
+
+  .panel-footer { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  #export-panel { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .export-hint { font-size: 12px; color: var(--ink-muted); margin: 0 0 8px; }
+  #export-text {
+    width: 100%;
+    min-height: 140px;
+    resize: vertical;
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    padding: 10px;
+  }
+  .export-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  #export-status { font-size: 12px; color: var(--accent); }
+
+  /* ---------- Timing tiers ---------- */
+  .tier-row {
+    display: grid;
+    grid-template-columns: 76px 1fr 60px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .tier-row label { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-muted); }
+  .tier-row input[type="number"] { width: 100%; }
+  .tier-actual {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    color: var(--ink-faint);
+    margin: -4px 0 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .tier-actual b { color: var(--accent); font-weight: 500; }
+
+  .quantization-note {
+    font-size: 12px;
+    color: var(--ink-muted);
+    background: var(--surface-raised);
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 14px 0 22px;
+  }
+
+  /* ---------- Alphabet reference ---------- */
+  #alphabet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+    gap: 6px;
+  }
+  .glyph-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    background: var(--surface-raised);
+    border-radius: 5px;
+    padding: 6px 2px 5px;
+  }
+  .glyph-cell.playground { opacity: 0.72; }
+  .glyph-cell svg { width: 26px; height: auto; }
+  .glyph-cell span {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-muted);
+  }
+  .legend { display: flex; gap: 16px; margin-top: 10px; font-size: 11px; color: var(--ink-faint); }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .dot.verified { background: var(--accent); }
+  .dot.playground { background: var(--ink-faint); }
+</style>
+
+<div class="app">
+  <div class="masthead">
+    <h1>Segment Bench</h1>
+    <p>A browser-based simulator for a TM1637-style 4-digit 7-segment display — design and preview text/number message sequences with LONG / MEDIUM / SHORT display tiers and ~150ms refresh quantization, without flashing any hardware.</p>
+  </div>
+
+  <div class="panel save-bar">
+    <div class="save-row">
+      <button id="btn-save-file" class="primary">💾 Save as file&hellip;</button>
+      <span class="save-name">as <b id="save-name-preview"></b>.html</span>
+    </div>
+    <p class="save-hint">Nothing here is saved automatically -- edits are exploratory until you click this. Reloading or reopening this file always shows what it was last saved with, never a mid-experiment tweak. "Save as file" downloads a complete, independent copy under the name shown; with your browser set to ask where to save, the dialog will warn you if that name already exists so you can increment it. Open two different saved files in two tabs to compare them side by side.</p>
+  </div>
+
+  <div class="hero">
+    <div class="display-panel">
+      <svg id="display-svg" viewBox="0 0 340 130" aria-label="Simulated 7-segment display"></svg>
+    </div>
+    <div class="transport">
+      <button id="btn-restart" class="icon" title="Restart from step 1">⟲</button>
+      <button id="btn-play" class="primary">Pause</button>
+      <button id="btn-step">Step ▸</button>
+      <div class="brightness-control">
+        <label for="brightness">Brightness</label>
+        <input type="range" id="brightness" min="0" max="7" value="4" step="1">
+        <span id="brightness-val" style="font-family:'IBM Plex Mono',monospace; font-size:12px;">4</span>
+      </div>
+      <div class="step-indicator">Step <b id="step-num">1</b> / <span id="step-total">11</span></div>
+    </div>
+  </div>
+
+  <div class="workbench">
+    <section class="panel messages-panel">
+      <h2>Message</h2>
+      <div id="steps-list"></div>
+      <div class="panel-footer">
+        <button id="btn-add-text">+ Text step</button>
+        <button id="btn-add-number">+ Number step</button>
+        <button id="btn-add-blank">+ Blank / pause</button>
+        <button id="btn-export">⤓ Export config</button>
+      </div>
+      <div id="export-panel" hidden>
+        <p class="export-hint">Paste this straight into the chat, or download it and attach the file -- either way it's the exact step list and tier values, no need to describe them in words.</p>
+        <textarea id="export-text" readonly spellcheck="false"></textarea>
+        <div class="export-actions">
+          <button id="btn-export-copy" class="small">Copy</button>
+          <button id="btn-export-download" class="small">Download .json</button>
+          <span id="export-status"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel timing-panel">
+      <h2>Timing tiers</h2>
+      <div class="tier-row" data-tier="long">
+        <label for="tier-long">LONG</label>
+        <input type="range" id="tier-long-range" min="50" max="1200" step="10">
+        <input type="number" id="tier-long" min="0" step="10">
+      </div>
+      <div class="tier-actual" id="tier-long-actual"></div>
+
+      <div class="tier-row" data-tier="medium">
+        <label for="tier-medium">MEDIUM</label>
+        <input type="range" id="tier-medium-range" min="50" max="1200" step="10">
+        <input type="number" id="tier-medium" min="0" step="10">
+      </div>
+      <div class="tier-actual" id="tier-medium-actual"></div>
+
+      <div class="tier-row" data-tier="short">
+        <label for="tier-short">SHORT</label>
+        <input type="range" id="tier-short-range" min="20" max="1200" step="10">
+        <input type="number" id="tier-short" min="0" step="10">
+      </div>
+      <div class="tier-actual" id="tier-short-actual"></div>
+
+      <p class="quantization-note">The display-refresh loop only polls every ~150ms — same as the real firmware — so a duration doesn't actually end until the first poll that lands past it. "Actual" above is that quantized value, not the raw number you typed. Real hardware has timing jitter this estimate doesn't model.</p>
+
+      <h2>Alphabet reference</h2>
+      <div id="alphabet-grid"></div>
+      <div class="legend">
+        <span><i class="dot verified"></i> common convention (matches most 7-segment alphanumeric fonts)</span>
+        <span><i class="dot playground"></i> approximate / less common, included for completeness</span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ================= Segment bits (standard A-G bit-flag convention) =================
+  const SEG_A = 1, SEG_B = 2, SEG_C = 4, SEG_D = 8, SEG_E = 16, SEG_F = 32, SEG_G = 64;
+
+  const DIGIT_SEGMENTS = [
+    SEG_A|SEG_B|SEG_C|SEG_D|SEG_E|SEG_F,         // 0
+    SEG_B|SEG_C,                                  // 1
+    SEG_A|SEG_B|SEG_D|SEG_E|SEG_G,                 // 2
+    SEG_A|SEG_B|SEG_C|SEG_D|SEG_G,                 // 3
+    SEG_B|SEG_C|SEG_F|SEG_G,                       // 4
+    SEG_A|SEG_C|SEG_D|SEG_F|SEG_G,                 // 5
+    SEG_A|SEG_C|SEG_D|SEG_E|SEG_F|SEG_G,           // 6
+    SEG_A|SEG_B|SEG_C,                             // 7
+    SEG_A|SEG_B|SEG_C|SEG_D|SEG_E|SEG_F|SEG_G,     // 8
+    SEG_A|SEG_B|SEG_C|SEG_D|SEG_F|SEG_G,           // 9
+  ];
+
+  // Letters marked verified:true reflect the common alphanumeric 7-segment convention used across most
+  // TM1637-style firmware and libraries -- what most displays will actually show for that character.
+  // Letters marked verified:false are more speculative approximations added here for completeness;
+  // they're plausible but less standardized, and may render differently (or not at all) on other
+  // 7-segment fonts. Adjust CHAR_MAP freely to match whatever font your own display actually uses.
+  const CHAR_MAP = {
+    "O": { seg: SEG_A|SEG_B|SEG_C|SEG_D|SEG_E|SEG_F, verified: true },
+    "o": { seg: SEG_C|SEG_D|SEG_E|SEG_G, verified: true },
+    "v": { seg: SEG_C|SEG_D|SEG_E, verified: true },
+    "u": { seg: SEG_C|SEG_D|SEG_E, verified: true },
+    "V": { seg: SEG_C|SEG_D|SEG_E, verified: true },
+    "U": { seg: SEG_B|SEG_C|SEG_D|SEG_E|SEG_F, verified: true },
+    "r": { seg: SEG_E|SEG_G, verified: true },
+    "P": { seg: SEG_A|SEG_B|SEG_E|SEG_F|SEG_G, verified: true },
+    "p": { seg: SEG_A|SEG_B|SEG_E|SEG_F|SEG_G, verified: true },
+    "S": { seg: SEG_A|SEG_C|SEG_D|SEG_F|SEG_G, verified: true },
+    "s": { seg: SEG_A|SEG_C|SEG_D|SEG_F|SEG_G, verified: true },
+    "E": { seg: SEG_A|SEG_D|SEG_E|SEG_F|SEG_G, verified: true },
+    "e": { seg: SEG_A|SEG_D|SEG_E|SEG_F|SEG_G, verified: true },
+    "H": { seg: SEG_B|SEG_C|SEG_E|SEG_F|SEG_G, verified: true },
+    "i": { seg: SEG_C, verified: true },
+    // The real firmware sends the identical single segment (SEG_C) for this position regardless of
+    // case, so "I" here is a bench-only convention, not a verified firmware glyph: it lights both the
+    // upper-right and lower-right segments (SEG_B|SEG_C) instead of just the lower-right one, giving
+    // "I" and "i" different segment counts to look different on screen.
+    "I": { seg: SEG_B|SEG_C, verified: false },
+    "n": { seg: SEG_C|SEG_E|SEG_G, verified: true },
+    "d": { seg: SEG_B|SEG_C|SEG_D|SEG_E|SEG_G, verified: true },
+    "t": { seg: SEG_D|SEG_E|SEG_F|SEG_G, verified: true },
+    "F": { seg: SEG_A|SEG_E|SEG_F|SEG_G, verified: true },
+    "f": { seg: SEG_A|SEG_E|SEG_F|SEG_G, verified: true },
+
+    "A": { seg: SEG_A|SEG_B|SEG_C|SEG_E|SEG_F|SEG_G, verified: false },
+    "a": { seg: SEG_A|SEG_B|SEG_C|SEG_E|SEG_F|SEG_G, verified: false },
+    "b": { seg: SEG_C|SEG_D|SEG_E|SEG_F|SEG_G, verified: false },
+    "C": { seg: SEG_A|SEG_D|SEG_E|SEG_F, verified: false },
+    "c": { seg: SEG_D|SEG_E|SEG_G, verified: false },
+    "G": { seg: SEG_A|SEG_C|SEG_D|SEG_E|SEG_F, verified: false },
+    "g": { seg: SEG_A|SEG_C|SEG_D|SEG_E|SEG_F, verified: false },
+    "h": { seg: SEG_C|SEG_E|SEG_F|SEG_G, verified: false },
+    "J": { seg: SEG_B|SEG_C|SEG_D, verified: false },
+    "j": { seg: SEG_B|SEG_C|SEG_D, verified: false },
+    "L": { seg: SEG_D|SEG_E|SEG_F, verified: true },
+    "l": { seg: SEG_D|SEG_E|SEG_F, verified: true },
+    "q": { seg: SEG_A|SEG_B|SEG_C|SEG_F|SEG_G, verified: false },
+    "y": { seg: SEG_B|SEG_C|SEG_D|SEG_F|SEG_G, verified: false },
+    "Z": { seg: SEG_A|SEG_B|SEG_D|SEG_E|SEG_G, verified: false },
+    "z": { seg: SEG_A|SEG_B|SEG_D|SEG_E|SEG_G, verified: false },
+    "-": { seg: SEG_G, verified: false },
+    "_": { seg: SEG_D, verified: false },
+    " ": { seg: 0, verified: false },
+  };
+
+  function charToSeg(c) {
+    const entry = CHAR_MAP[c];
+    return entry ? entry.seg : 0;
+  }
+
+  function textToMask(text) {
+    const mask = [0, 0, 0, 0];
+    const unsupported = [];
+    for (let i = 0; i < 4; i++) {
+      const c = text[i];
+      if (c === undefined) { mask[i] = 0; continue; }
+      if (!(c in CHAR_MAP)) unsupported.push(c);
+      mask[i] = charToSeg(c || " ");
+    }
+    return { mask, unsupported, truncated: text.length > 4 };
+  }
+
+  function numberToMask(num) {
+    const mask = [0, 0, 0, 0];
+    let n = Math.max(0, Math.floor(Math.abs(num)));
+    let str = String(n);
+    if (str.length > 4) str = str.slice(-4);
+    for (let i = 0; i < 4; i++) {
+      const digitChar = str[str.length - 4 + i];
+      mask[i] = digitChar !== undefined ? DIGIT_SEGMENTS[parseInt(digitChar, 10)] : 0;
+    }
+    return mask;
+  }
+
+  // ================= SVG digit rendering (segments generated, not hand-authored paths) =================
+  const NS = "http://www.w3.org/2000/svg";
+  const DIGIT_W = 70, DIGIT_H = 130, THICK = 16, PAD = 6, GAP = 14;
+  // Horizontal bars (A/G/D) run flush with the outer edges of the vertical bars (F/B and E/C) --
+  // H_INSET = PAD matches real hardware: the horizontal bar's left edge lines up with F/E's left edge
+  // and its right edge lines up with B/C's right edge.
+  const H_INSET = PAD;
+  const H_WIDTH = DIGIT_W - 2 * H_INSET;
+
+  // The horizontal bars (A/D) always span PAD..DIGIT_H-PAD in x, reaching the digit's true lateral
+  // edges. The vertical bars are a little more than half the digit's height: the top arms (F/B) run
+  // from the digit's top edge (PAD) all the way through the middle bar (G) to G's OWN far edge --
+  // G_BOTTOM -- and the bottom arms (E/C) run from G's other far edge -- G_TOP -- all the way down to
+  // the digit's bottom edge. So F/B and C/E overlap each other across G's entire height, not just past
+  // its midline, and that's also what keeps a horizontal bar's rounded corner (rx, below) covered by a
+  // vertical bar's straight edge at every join. This is the SAME fixed geometry every digit uses,
+  // always -- no per-character exception -- which is exactly why numerals stay legible: "2" lights
+  // only the top-right arm, not the bottom-right one, so it still reads differently from "8" (both).
+  const G_TOP = DIGIT_H / 2 - THICK / 2;
+  const G_BOTTOM = DIGIT_H / 2 + THICK / 2;
+
+  function segmentRects(originX) {
+    return {
+      A: { x: originX + H_INSET, y: PAD, w: H_WIDTH, h: THICK },
+      G: { x: originX + H_INSET, y: G_TOP, w: H_WIDTH, h: THICK },
+      D: { x: originX + H_INSET, y: DIGIT_H - PAD - THICK, w: H_WIDTH, h: THICK },
+      F: { x: originX + PAD, y: PAD, w: THICK, h: G_BOTTOM - PAD },
+      B: { x: originX + DIGIT_W - PAD - THICK, y: PAD, w: THICK, h: G_BOTTOM - PAD },
+      E: { x: originX + PAD, y: G_TOP, w: THICK, h: (DIGIT_H - PAD) - G_TOP },
+      C: { x: originX + DIGIT_W - PAD - THICK, y: G_TOP, w: THICK, h: (DIGIT_H - PAD) - G_TOP },
+    };
+  }
+  const BIT = { A: SEG_A, B: SEG_B, C: SEG_C, D: SEG_D, E: SEG_E, F: SEG_F, G: SEG_G };
+
+  function buildDigitsSVG(svgEl, count) {
+    svgEl.innerHTML = "";
+    const totalW = count * DIGIT_W + (count - 1) * GAP;
+    svgEl.setAttribute("viewBox", `0 0 ${totalW} ${DIGIT_H}`);
+    const cells = [];
+    for (let d = 0; d < count; d++) {
+      const originX = d * (DIGIT_W + GAP);
+      const rects = segmentRects(originX);
+      const rectEls = {};
+      for (const letter of Object.keys(rects)) {
+        const r = rects[letter];
+        const el = document.createElementNS(NS, "rect");
+        el.setAttribute("x", r.x);
+        el.setAttribute("y", r.y);
+        el.setAttribute("width", r.w);
+        el.setAttribute("height", r.h);
+        el.setAttribute("rx", 2.5);
+        el.setAttribute("class", "seg-rect unlit");
+        svgEl.appendChild(el);
+        rectEls[letter] = el;
+      }
+      cells.push(rectEls);
+    }
+    return cells;
+  }
+
+  // Every vertical bar (F/B/E/C) is drawn at the SAME fixed length every time it's lit, no matter what
+  // else is or isn't lit alongside it -- there's no per-character or per-mask exception here. That's
+  // what a real physical segment is: one fixed shape baked into the display, on or off, never resized
+  // by what its neighbors are doing. Same for the horizontal bars (A/D/G): one fixed length, always
+  // (which happens to differ from the vertical bars' fixed length, per segmentRects above).
+  function paintDigits(cells, maskArray, brightnessOpacity) {
+    for (let d = 0; d < cells.length; d++) {
+      const mask = maskArray[d] || 0;
+      for (const letter of Object.keys(cells[d])) {
+        const el = cells[d][letter];
+        const lit = (mask & BIT[letter]) !== 0;
+        el.setAttribute("class", "seg-rect " + (lit ? "lit" : "unlit"));
+        el.style.opacity = lit ? brightnessOpacity : 1;
+        // SVG paints elements in document order, later ones on top -- and the vertical/horizontal bars
+        // now genuinely overlap at every join (see segmentRects above), not just touch. Segments are created
+        // in a fixed A/G/D/F/B/E/C order, so without this, an UNLIT segment that happens to come later
+        // in that order would paint its dark fill right over a LIT neighbor's overlap into its corner,
+        // carving a visible notch out of an otherwise-solid bar. Re-appending every LIT segment moves
+        // it to the end of its parent's children -- i.e. to the top of the paint order -- each time
+        // this runs, so a lit segment always wins the overlap regardless of which letter it is.
+        if (lit) el.parentNode.appendChild(el);
+      }
+    }
+  }
+
+  // ================= State =================
+  const DEFAULTS = {
+    tiers: { long: 450, medium: 250, short: 120 },
+    brightness: 4,
+    steps: [
+      { kind: "text", text: "HELP", tier: "medium", customMs: 300, enabled: true },
+      { kind: "text", text: "", tier: "short", customMs: 150, enabled: true },
+      { kind: "text", text: "HELP", tier: "medium", customMs: 300, enabled: true },
+      { kind: "text", text: "", tier: "short", customMs: 150, enabled: true },
+      { kind: "text", text: "SAFE", tier: "long", customMs: 600, enabled: true },
+      { kind: "number", number: 42, tier: "long", customMs: 600, enabled: true },
+      { kind: "text", text: "", tier: "short", customMs: 150, enabled: true },
+      { kind: "text", text: "Hi", tier: "medium", customMs: 300, enabled: true },
+      { kind: "text", text: "OFF", tier: "medium", customMs: 300, enabled: true },
+      { kind: "number", number: 50, tier: "long", customMs: 600, enabled: true },
+      { kind: "text", text: "", tier: "short", customMs: 150, enabled: true },
+    ],
+  };
+
+  // ================= State =================
+  // Deliberately NOT auto-persisted anywhere. Earlier revisions of this file autosaved every edit to
+  // localStorage, on the theory that it was just a convenience -- but that meant an exploratory tweak
+  // ("let me just see what this looks like") silently became the new normal the next time this exact
+  // file was reopened, with no way to tell an experiment from a real revision. That's backwards for a
+  // bench tool, where trying something you don't intend to keep is the whole point. Now the ONLY thing
+  // that makes an edit permanent is clicking "Save as file", which produces a new, separately-named
+  // file via your browser's own save dialog. Reloading this page, or reopening this exact file later,
+  // always shows exactly what it last carried as EMBEDDED_INITIAL_STATE (or the built-in example, for
+  // an unmodified copy of the tool) -- never whatever you were mid-experiment with.
+  //
+  // Set (via string replacement, not by hand) at "Save as file" time, so a freshly downloaded copy
+  // opens showing exactly the sequence it was saved from instead of the generic example -- see
+  // buildStandaloneHTML(). Left null in the working copy of this file.
+  const EMBEDDED_INITIAL_STATE = null; // __EMBEDDED_STATE_MARKER__
+
+  let state = structuredClone(EMBEDDED_INITIAL_STATE || DEFAULTS);
+
+  // Every step/tier/brightness edit still calls this, exactly as before -- it's just a no-op for
+  // persistence now (see the comment above). Kept as a named function, rather than removing every call
+  // site, so the rest of the UI needs no other changes: something CHANGED in memory, but nothing is
+  // written anywhere until "Save as file" is clicked.
+  function saveState() {
+    updateSaveNamePreview(); // keep the "as <name>.html" preview live with every edit, not just after a full re-render
+  }
+
+  // ================= Playback =================
+  const REFRESH_INTERVAL_MS = 150;
+  let currentStep = 0;
+  let stepStart = performance.now();
+  let playing = true;
+  let displayCells;
+
+  function resolveDuration(step) {
+    if (step.tier === "custom") return step.customMs || 0;
+    return state.tiers[step.tier] ?? state.tiers.long;
+  }
+
+  function quantizedActual(targetMs) {
+    return (Math.floor(targetMs / REFRESH_INTERVAL_MS) + 1) * REFRESH_INTERVAL_MS;
+  }
+
+  // Finds the next step after fromIndex whose `enabled` flag isn't explicitly false (missing/undefined
+  // counts as enabled, so old saved messages from before this feature existed don't need migrating).
+  // Editing convenience only -- there's typically no equivalent in real embedded display-driver code,
+  // whose message/phase array has no concept of a disabled-but-present step. Falls back to fromIndex
+  // itself if every step is disabled, rather than looping forever.
+  function findNextEnabledStep(fromIndex) {
+    const n = state.steps.length;
+    if (n === 0) return 0;
+    for (let i = 1; i <= n; i++) {
+      const idx = (fromIndex + i + n) % n;
+      if (state.steps[idx].enabled !== false) return idx;
+    }
+    return fromIndex;
+  }
+
+  function renderCurrentStep() {
+    const step = state.steps[currentStep];
+    if (!step) return;
+    let mask;
+    if (step.kind === "number") {
+      mask = numberToMask(step.number || 0);
+    } else {
+      mask = textToMask(step.text || "").mask;
+    }
+    const opacity = 0.4 + (state.brightness / 7) * 0.6;
+    paintDigits(displayCells, mask, opacity);
+    document.getElementById("step-num").textContent = String(currentStep + 1);
+    document.getElementById("step-total").textContent = String(state.steps.length);
+    document.querySelectorAll(".step-row").forEach((row, i) => {
+      row.classList.toggle("current", i === currentStep);
+    });
+  }
+
+  function tick() {
+    if (state.steps.length > 0 && state.steps[currentStep].enabled === false) {
+      // The current step was just disabled (or a disabled step got left as current, e.g. right after
+      // deleting steps) -- jump off it immediately rather than waiting out its duration or requiring
+      // play to be running. This check runs regardless of playing/paused.
+      currentStep = findNextEnabledStep(currentStep);
+      stepStart = performance.now();
+    } else if (playing && state.steps.length > 0) {
+      const step = state.steps[currentStep];
+      const duration = resolveDuration(step);
+      if (performance.now() - stepStart > duration) {
+        currentStep = findNextEnabledStep(currentStep);
+        stepStart = performance.now();
+      }
+    }
+    renderCurrentStep();
+  }
+
+  // ================= Step editor UI =================
+  function addStep(step) {
+    state.steps.push(step);
+    if (currentStep >= state.steps.length) currentStep = 0;
+    saveState();
+    renderStepsList();
+  }
+
+  function removeStep(i) {
+    state.steps.splice(i, 1);
+    if (state.steps.length === 0) state.steps.push({ kind: "text", text: "", tier: "long", customMs: 450, enabled: true });
+    currentStep = Math.min(currentStep, state.steps.length - 1);
+    stepStart = performance.now();
+    saveState();
+    renderStepsList();
+  }
+
+  function moveStep(i, dir) {
+    const j = i + dir;
+    if (j < 0 || j >= state.steps.length) return;
+    [state.steps[i], state.steps[j]] = [state.steps[j], state.steps[i]];
+    saveState();
+    renderStepsList();
+  }
+
+  function renderStepsList() {
+    const list = document.getElementById("steps-list");
+    list.innerHTML = "";
+    state.steps.forEach((step, i) => {
+      const row = document.createElement("div");
+      row.className = "step-row";
+      if (step.enabled === false) row.classList.add("disabled");
+
+      const idx = document.createElement("div");
+      idx.className = "step-idx";
+      idx.textContent = i + 1; // shown 1-based for human readability; i itself stays the real 0-based array index everywhere else
+      row.appendChild(idx);
+
+      const enabledBox = document.createElement("input");
+      enabledBox.type = "checkbox";
+      enabledBox.className = "step-enabled";
+      enabledBox.checked = step.enabled !== false;
+      enabledBox.title = "Include this step in playback";
+      enabledBox.addEventListener("change", (e) => {
+        step.enabled = e.target.checked;
+        saveState();
+        renderStepsList();
+      });
+      row.appendChild(enabledBox);
+
+      const fields = document.createElement("div");
+      fields.className = "step-fields";
+
+      const kindToggle = document.createElement("div");
+      kindToggle.className = "kind-toggle";
+      ["text", "number"].forEach((k) => {
+        const b = document.createElement("button");
+        b.className = "small" + (step.kind === k ? " active" : "");
+        b.textContent = k === "text" ? "Text" : "123";
+        b.title = k === "text" ? "Text step" : "Number step";
+        b.addEventListener("click", () => { step.kind = k; saveState(); renderStepsList(); });
+        kindToggle.appendChild(b);
+      });
+      fields.appendChild(kindToggle);
+
+      if (step.kind === "text") {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.maxLength = 4;
+        input.value = step.text || "";
+        input.placeholder = "blank";
+        input.addEventListener("input", (e) => {
+          step.text = e.target.value;
+          saveState();
+          renderWarning(warnEl, step);
+          if (i === currentStep) renderCurrentStep();
+        });
+        fields.appendChild(input);
+      } else {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.value = step.number ?? 0;
+        input.addEventListener("input", (e) => {
+          step.number = parseInt(e.target.value, 10) || 0;
+          saveState();
+          if (i === currentStep) renderCurrentStep();
+        });
+        fields.appendChild(input);
+      }
+
+      const tierSelect = document.createElement("select");
+      ["long", "medium", "short", "custom"].forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t;
+        opt.textContent = t.toUpperCase();
+        if (step.tier === t) opt.selected = true;
+        tierSelect.appendChild(opt);
+      });
+      tierSelect.addEventListener("change", (e) => {
+        step.tier = e.target.value;
+        saveState();
+        renderStepsList();
+      });
+      fields.appendChild(tierSelect);
+
+      if (step.tier === "custom") {
+        const customInput = document.createElement("input");
+        customInput.type = "number";
+        customInput.min = 0;
+        customInput.step = 10;
+        customInput.value = step.customMs ?? 450;
+        customInput.title = "Custom duration (ms)";
+        customInput.addEventListener("input", (e) => {
+          step.customMs = parseInt(e.target.value, 10) || 0;
+          saveState();
+        });
+        fields.appendChild(customInput);
+      }
+
+      row.appendChild(fields);
+
+      const actions = document.createElement("div");
+      actions.className = "step-actions";
+      const up = document.createElement("button");
+      up.className = "small icon"; up.textContent = "↑"; up.title = "Move up";
+      up.addEventListener("click", () => moveStep(i, -1));
+      const down = document.createElement("button");
+      down.className = "small icon"; down.textContent = "↓"; down.title = "Move down";
+      down.addEventListener("click", () => moveStep(i, 1));
+      const del = document.createElement("button");
+      del.className = "small icon danger"; del.textContent = "✕"; del.title = "Delete step";
+      del.addEventListener("click", () => removeStep(i));
+      actions.appendChild(up); actions.appendChild(down); actions.appendChild(del);
+      row.appendChild(actions);
+
+      const warnEl = document.createElement("div");
+      warnEl.className = "warn";
+      row.appendChild(warnEl);
+      if (step.kind === "text") renderWarning(warnEl, step);
+
+      list.appendChild(row);
+    });
+  }
+
+  function renderWarning(el, step) {
+    const { unsupported, truncated } = textToMask(step.text || "");
+    const msgs = [];
+    if (unsupported.length) msgs.push(`No glyph for: ${unsupported.map((c) => `"${c}"`).join(", ")}`);
+    if (truncated) msgs.push("Text longer than 4 characters is truncated.");
+    el.textContent = msgs.join(" ");
+  }
+
+  // ================= Alphabet reference =================
+  function renderAlphabet() {
+    const grid = document.getElementById("alphabet-grid");
+    grid.innerHTML = "";
+    const chars = Object.keys(CHAR_MAP).filter((c) => c !== " ");
+    chars.forEach((c) => {
+      const entry = CHAR_MAP[c];
+      const cell = document.createElement("div");
+      cell.className = "glyph-cell" + (entry.verified ? "" : " playground");
+      const svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("viewBox", `0 0 ${DIGIT_W} ${DIGIT_H}`);
+      const cellsArr = buildDigitsSVG(svg, 1);
+      paintDigits(cellsArr, [entry.seg], 1);
+      cell.appendChild(svg);
+      const label = document.createElement("span");
+      label.textContent = c === "" ? "␣" : c;
+      cell.appendChild(label);
+      grid.appendChild(cell);
+    });
+  }
+
+  // ================= Tier controls =================
+  function renderTierActuals() {
+    ["long", "medium", "short"].forEach((t) => {
+      const ms = state.tiers[t];
+      const actual = quantizedActual(ms);
+      document.getElementById(`tier-${t}-actual`).innerHTML =
+        `target ${ms}ms &rarr; <b>~${actual}ms</b> actual on screen`;
+    });
+  }
+
+  function wireTierControls() {
+    ["long", "medium", "short"].forEach((t) => {
+      const num = document.getElementById(`tier-${t}`);
+      const range = document.getElementById(`tier-${t}-range`);
+      num.value = state.tiers[t];
+      range.value = state.tiers[t];
+      const sync = (val) => {
+        state.tiers[t] = val;
+        num.value = val;
+        range.value = val;
+        saveState();
+        renderTierActuals();
+      };
+      num.addEventListener("input", (e) => sync(parseInt(e.target.value, 10) || 0));
+      range.addEventListener("input", (e) => sync(parseInt(e.target.value, 10) || 0));
+    });
+    renderTierActuals();
+  }
+
+  // ================= Default name suggestion =================
+  // Naming convention: for each step, a code for the word/action followed by a one-character
+  // speed code, steps joined with "-". Choices made here that are meant to be argued with, not treated
+  // as settled -- flagged in chat:
+  //   - blank/pause steps code as just the bare speed code (e.g. "S"), no separate marker letter --
+  //     the hyphens already delimit steps, and a bare 1-character code can't be confused with a word
+  //     code, which is always at least 2 characters (a letter plus its own speed code).
+  //   - number steps code as "#" (the tier, not the displayed value -- e.g. the 42 and the 50 readouts
+  //     both just show "#", since the point of a variant is usually comparing timing, not which number
+  //     happens to be on screen).
+  //   - custom-tier steps code as "C<ms>" (e.g. "C300") rather than a bare "C", since two different
+  //     custom durations are two different things worth telling apart at a glance.
+  //   - a word's letter is normally just its first character, but if two DIFFERENT words in the same
+  //     sequence would collide on that first letter, both escalate to the shortest prefix that tells
+  //     them apart (falling back to the whole word, max 4 chars, if they share every character up to
+  //     the shorter one's length).
+  function speedCode(step) {
+    if (step.tier === "long") return "L";
+    if (step.tier === "medium") return "M";
+    if (step.tier === "short") return "S";
+    return "C" + (step.customMs ?? 0);
+  }
+
+  function wordAbbreviations(steps) {
+    const words = [];
+    steps.forEach((s) => {
+      // .trim() before treating text as a "word" to abbreviate -- a step like " SEt" (leading blank,
+      // used to right-align a word inside the full 4-digit width) is meaningfully "SEt" for naming
+      // purposes, not a word that starts with a blank character. Whitespace-only text (all blanks) is
+      // handled as a blank step below, same as an empty string.
+      if (s.kind === "text" && s.text && s.text.trim()) {
+        const w = s.text.trim().toUpperCase();
+        if (!words.includes(w)) words.push(w);
+      }
+    });
+    const codes = {};
+    for (let len = 1; len <= 4; len++) {
+      const remaining = words.filter((w) => !(w in codes));
+      if (remaining.length === 0) break;
+      const counts = {};
+      remaining.forEach((w) => {
+        const prefix = w.slice(0, len);
+        counts[prefix] = (counts[prefix] || 0) + 1;
+      });
+      remaining.forEach((w) => {
+        const prefix = w.slice(0, len);
+        if (counts[prefix] === 1 || len >= w.length) codes[w] = prefix;
+      });
+    }
+    return codes;
+  }
+
+  function suggestVariantName(steps) {
+    if (!steps.length) return "Empty";
+    const abbrev = wordAbbreviations(steps);
+    const parts = steps.map((s) => {
+      if (s.kind === "number") return "#" + speedCode(s);
+      if (!s.text || !s.text.trim()) return speedCode(s); // blank, or whitespace-only -- same treatment
+      const w = s.text.trim().toUpperCase();
+      return (abbrev[w] || w) + speedCode(s);
+    });
+    return parts.join("-");
+  }
+
+  // ================= Save as standalone file =================
+  // Turns the CURRENTLY RUNNING page into a new, fully independent .html file with today's steps/tiers
+  // baked in as its own starting point -- so opening that saved file fresh (empty localStorage, new
+  // path) shows exactly this sequence, not the generic example. Works by taking a live snapshot of
+  // this document (document.documentElement.outerHTML already includes this file's own <script> source
+  // verbatim, since browsers serialize script tag text as part of outerHTML) and swapping the
+  // EMBEDDED_INITIAL_STATE marker line for one with this state's data filled in. Any stale markup the
+  // snapshot also happens to catch (rendered step rows, painted segments, etc.) is harmless -- init()
+  // rebuilds all of that from state on load regardless of what shipped in the static HTML.
+  // A REGEX, not the plain marker text as a string -- the plain text also appears (necessarily) inside
+  // this very line, quoted as a string literal, and a naive substring replace would match THAT
+  // occurrence too, corrupting the downloaded copy's own source. The regex's escaped `\/\/` differs
+  // from that string's literal `//`, so it only matches the real declaration line.
+  const EMBEDDED_MARKER_RE = /const EMBEDDED_INITIAL_STATE = null; \/\/ __EMBEDDED_STATE_MARKER__/;
+
+  function buildStandaloneHTML(variantName) {
+    const liveHTML = "<!doctype html>\n" + document.documentElement.outerHTML;
+    const embedded = JSON.stringify({ tiers: state.tiers, brightness: state.brightness, steps: state.steps });
+    const replacementLine = `const EMBEDDED_INITIAL_STATE = ${embedded}; // __EMBEDDED_STATE_MARKER__`;
+    // Function-form replacer: a plain string replacement would treat "$&", "$$", etc. inside step text
+    // as special patterns if the user ever typed one; a function replacer inserts it literally instead.
+    let html = liveHTML.replace(EMBEDDED_MARKER_RE, () => replacementLine);
+    html = html.replace(/<title>[^<]*<\/title>/, () => `<title>Segment Bench — ${variantName}</title>`);
+    return html;
+  }
+
+  function updateSaveNamePreview() {
+    document.getElementById("save-name-preview").textContent = suggestVariantName(state.steps);
+  }
+
+  function wireSaveAsFile() {
+    updateSaveNamePreview();
+    document.getElementById("btn-save-file").addEventListener("click", () => {
+      const name = suggestVariantName(state.steps);
+      const html = buildStandaloneHTML(name);
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name + ".html";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // ================= Transport wiring =================
+  function wireTransport() {
+    const playBtn = document.getElementById("btn-play");
+    playBtn.addEventListener("click", () => {
+      playing = !playing;
+      playBtn.textContent = playing ? "Pause" : "Play";
+      playBtn.classList.toggle("primary", playing);
+    });
+    document.getElementById("btn-step").addEventListener("click", () => {
+      currentStep = findNextEnabledStep(currentStep);
+      stepStart = performance.now();
+      renderCurrentStep();
+    });
+    document.getElementById("btn-restart").addEventListener("click", () => {
+      currentStep = findNextEnabledStep(-1); // first enabled step, starting the search from index 0
+      stepStart = performance.now();
+      renderCurrentStep();
+    });
+    const brightness = document.getElementById("brightness");
+    brightness.value = state.brightness;
+    document.getElementById("brightness-val").textContent = state.brightness;
+    brightness.addEventListener("input", (e) => {
+      state.brightness = parseInt(e.target.value, 10);
+      document.getElementById("brightness-val").textContent = state.brightness;
+      saveState();
+      renderCurrentStep();
+    });
+  }
+
+  function wireAddButtons() {
+    document.getElementById("btn-add-text").addEventListener("click", () =>
+      addStep({ kind: "text", text: "", tier: "medium", customMs: 300, enabled: true }));
+    document.getElementById("btn-add-number").addEventListener("click", () =>
+      addStep({ kind: "number", number: 0, tier: "long", customMs: 450, enabled: true }));
+    document.getElementById("btn-add-blank").addEventListener("click", () =>
+      addStep({ kind: "text", text: "", tier: "short", customMs: 120, enabled: true }));
+  }
+
+  // ================= Export =================
+  // Bundles exactly what's needed to reproduce this message + timing in your own firmware -- the
+  // tier values and the full step list (including disabled steps, so nothing gets silently dropped;
+  // whoever reads this back can decide what to do with them). Deliberately excludes brightness and
+  // playback position, which have no real-firmware equivalent.
+  function buildExportJSON() {
+    return JSON.stringify({ name: suggestVariantName(state.steps), tiers: state.tiers, steps: state.steps }, null, 2);
+  }
+
+  function wireExport() {
+    const panel = document.getElementById("export-panel");
+    const textarea = document.getElementById("export-text");
+    const status = document.getElementById("export-status");
+
+    document.getElementById("btn-export").addEventListener("click", () => {
+      textarea.value = buildExportJSON();
+      panel.hidden = false;
+      textarea.focus();
+      textarea.select();
+      status.textContent = "";
+    });
+
+    document.getElementById("btn-export-copy").addEventListener("click", () => {
+      const text = textarea.value;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+          () => { status.textContent = "Copied."; },
+          () => { textarea.select(); status.textContent = "Clipboard blocked -- text is selected, press Cmd/Ctrl+C."; }
+        );
+      } else {
+        textarea.select();
+        status.textContent = "Text is selected -- press Cmd/Ctrl+C.";
+      }
+    });
+
+    document.getElementById("btn-export-download").addEventListener("click", () => {
+      const blob = new Blob([textarea.value || buildExportJSON()], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "segment-bench-config.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      status.textContent = "Downloaded.";
+    });
+  }
+
+  // ================= Init =================
+  function init() {
+    displayCells = buildDigitsSVG(document.getElementById("display-svg"), 4);
+    currentStep = findNextEnabledStep(-1); // don't start on a step a previous visit left disabled
+    renderStepsList();
+    renderAlphabet();
+    wireSaveAsFile();
+    wireTierControls();
+    wireTransport();
+    wireAddButtons();
+    wireExport();
+    renderCurrentStep();
+    setInterval(tick, REFRESH_INTERVAL_MS);
+  }
+
+  init();
+})();
+</script>
