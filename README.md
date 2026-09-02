@@ -17,6 +17,11 @@ Built for anyone developing firmware that drives a 4-digit 7-segment display and
 
 Just open `segment-bench.html` in a browser — it's a single self-contained file, no build step, no server, no dependencies beyond a Google Font loaded from a CDN. Works from `file://` directly.
 
+## Documentation
+
+- [`guide.html`](guide.html) — full user guide: the display/transport controls, building a message, the alphabet's verified vs. approximate glyphs, saving/loading vs. exporting, and timing-tier quantization.
+- [`quick-reference.txt`](quick-reference.txt) — a plain-text cheat sheet covering the same ground, for quick lookups.
+
 ## Customizing for your own display
 
 The alphabet (`CHAR_MAP` near the top of the `<script>` block) is a straightforward character → segment-bitmask table. If your display's font differs from the common convention, or you want to add characters, just edit that table directly — no build tooling required.

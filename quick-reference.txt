@@ -1,0 +1,62 @@
+SEGMENT BENCH -- QUICK REFERENCE
+=================================
+
+TRANSPORT
+  Restart (⟲)      Jump to the first enabled step, reset its timer
+  Play / Pause     Toggle autoplay
+  Step ▸           Advance one step by hand (works while paused too)
+  Brightness 0-7   Preview glow only -- not saved or exported
+
+ADDING STEPS
+  + Text step      Up to 4 chars, from the alphabet reference
+  + Number step    Any integer, last 4 digits shown, right-aligned
+  + Blank / pause  Empty text step, usually on the SHORT tier
+
+EACH STEP ROW
+  Checkbox   Unchecked = skipped in playback, but stays in the list
+             (and in anything you save or export)
+  ↑ / ↓ / ✕  Reorder / delete
+
+TIMING TIERS
+  LONG    50-1200ms   main content -- a word/number meant to be read
+  MEDIUM  50-1200ms   secondary/repeated words, status labels
+  SHORT   20-1200ms   blanks, quick pulses between words
+  custom              per-step override, own ms value
+
+  Display polls every ~150ms (matches real firmware), so "actual"
+  on-screen time rounds UP to the next poll past your target --
+  e.g. 460ms target -> ~600ms actual. Real hardware adds its own
+  jitter on top of this.
+
+SAVE vs LOAD vs EXPORT
+  💾 Save data file   Downloads .json: tiers + brightness + steps.
+                      Nothing autosaves -- save before navigating away.
+  📂 Load data file   Reopens a saved sequence, through TODAY's
+                      display logic (fixes made to the page apply
+                      retroactively to old saves).
+  ⤓ Export config     Firmware-facing JSON: tiers + steps (incl.
+                      disabled ones), no brightness/position.
+                      For handing off, not for continuing to edit.
+
+ALPHABET GOTCHAS
+  R N D T B Q Y   Only ONE physical shape exists per letter -- typing
+                  the uppercase spelling (e.g. "END", "OVR") still
+                  lights the "lowercase-looking" shape. Correct, not
+                  a bug: "END" reads as "End" on screen.
+  I vs i          Deliberately drawn as two different glyphs here
+                  (2-segment bar vs. single stroke), even though real
+                  firmware usually sends the same segment for both.
+  Legend dots:    accent = common convention (most 7-seg fonts)
+                  faint  = playground / approximate, less standard
+
+FILENAME CONVENTION (Save data file)
+  <word-code><speed>-<word-code><speed>-...
+  speed codes: L / M / S, or C<ms> for custom
+  Case is never folded ("Hi" and "HI" are different words).
+  Rename the download freely -- it doesn't affect the file contents.
+
+GOTCHAS
+  - Nothing autosaves, including across reloads.
+  - Text >4 chars truncates; unsupported chars are flagged on the row.
+  - Save data file != Export config -- save/load is for continuing
+    to work here; export is for handing off to firmware.

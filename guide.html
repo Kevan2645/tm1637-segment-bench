@@ -1,0 +1,548 @@
+<title>Segment Bench Guide</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #101116;
+    --surface: #16171d;
+    --surface-raised: #1e212a;
+    --surface-sunken: #1a0d0a;
+    --border: #2f3340;
+    --border-soft: #2f334066;
+    --ink: #eae8e3;
+    --ink-muted: #9498a0;
+    --ink-faint: #5c6068;
+    --accent: #4fd1c5;
+    --accent-dim: #2c6b66;
+    --accent-ink: #0c1a19;
+    --seg: #ff4423;
+    --seg-glow: #ff6a3d;
+    --warn: #ff6b6b;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { color-scheme: dark; }
+
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    margin: 0;
+    line-height: 1.6;
+    font-size: 15px;
+  }
+
+  h1, h2, h3, h4 { font-family: "IBM Plex Mono", ui-monospace, monospace; text-wrap: balance; }
+
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+  a { color: var(--accent); }
+
+  .shell {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 56px 28px 120px;
+  }
+
+  /* ---------- Masthead ---------- */
+  .masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 40px;
+  }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eyebrow .pip {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--seg);
+    box-shadow: 0 0 6px var(--seg-glow);
+  }
+  .masthead h1 {
+    font-size: 34px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+  .masthead .dek {
+    color: var(--ink-muted);
+    font-size: 15.5px;
+    max-width: 62ch;
+    margin: 0;
+  }
+  .masthead .meta {
+    font-size: 12px;
+    color: var(--ink-faint);
+    font-family: "IBM Plex Mono", monospace;
+  }
+
+  /* ---------- Nav ---------- */
+  nav.toc {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 28px 0 44px;
+  }
+  nav.toc a {
+    text-decoration: none;
+    color: var(--ink-muted);
+    font-size: 13px;
+    font-family: "IBM Plex Mono", monospace;
+    display: flex;
+    gap: 8px;
+    padding: 3px 0;
+  }
+  nav.toc a:hover { color: var(--accent); }
+  nav.toc a span.n { color: var(--ink-faint); }
+  @media (max-width: 600px) { nav.toc { grid-template-columns: 1fr; } }
+
+  /* ---------- Quick reference card ---------- */
+  .quickref {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 24px 24px;
+    margin-bottom: 48px;
+  }
+  .quickref h2 { margin: 0 0 4px; }
+  .quickref .sub { color: var(--ink-muted); font-size: 13px; margin: 0 0 18px; }
+  .qr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px 22px;
+  }
+  @media (max-width: 620px) { .qr-grid { grid-template-columns: 1fr; } }
+  .qr-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px 12px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-soft);
+    border-radius: 7px;
+  }
+  .qr-key {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .qr-desc { font-size: 12.5px; color: var(--ink-muted); }
+  .qr-desc b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- Sections ---------- */
+  section.doc-section {
+    margin: 56px 0;
+    scroll-margin-top: 24px;
+  }
+  section.doc-section h2 {
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  section.doc-section h2::before {
+    content: "";
+    width: 16px;
+    height: 1px;
+    background: var(--accent-dim);
+  }
+  section.doc-section h3 {
+    font-size: 16px;
+    color: var(--ink);
+    margin: 26px 0 10px;
+    font-weight: 600;
+  }
+  .section-title {
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 23px;
+    font-weight: 600;
+    margin: 0 0 16px;
+    color: var(--ink);
+  }
+  p { margin: 0 0 14px; max-width: 68ch; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; max-width: 64ch; }
+  li { margin-bottom: 6px; }
+  .lede { color: var(--ink-muted); font-size: 15.5px; }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-dim);
+    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    font-size: 13.5px;
+    color: var(--ink-muted);
+    margin: 18px 0;
+    max-width: 68ch;
+  }
+  .callout b { color: var(--ink); font-weight: 500; }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.warn b { color: var(--warn); }
+
+  kbd, .pill {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 7px;
+    color: var(--ink);
+  }
+
+  code.inline {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    background: var(--surface-raised);
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: var(--accent);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+    margin: 4px 0 20px;
+  }
+  .table-wrap { overflow-x: auto; }
+  th, td {
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  th {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+  }
+  td.mono { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink-muted); }
+
+  /* ---------- Mini display illustrations ---------- */
+  .figure {
+    background: var(--surface-sunken);
+    border-radius: 8px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin: 16px 0 22px;
+    box-shadow: inset 0 2px 8px #00000066;
+  }
+  .figure svg { height: 46px; width: auto; flex-shrink: 0; }
+  .fig-caption { font-size: 12.5px; color: var(--ink-muted); max-width: 40ch; }
+  .fig-caption b { color: var(--ink); font-weight: 500; }
+  .seg-rect.lit { fill: var(--seg); filter: drop-shadow(0 0 4px var(--seg-glow)); }
+  .seg-rect.unlit { fill: #3c1811; }
+
+  /* ---------- Step-row look ---------- */
+  .demo-row {
+    display: grid;
+    grid-template-columns: 22px 20px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    margin-bottom: 8px;
+    max-width: 68ch;
+  }
+  .demo-row .idx { font-family: "IBM Plex Mono", monospace; color: var(--ink-faint); text-align: center; }
+  .demo-row .chk { width: 13px; height: 13px; border: 1px solid var(--ink-faint); border-radius: 3px; }
+  .demo-row .fields { display: flex; gap: 8px; align-items: center; font-family: "IBM Plex Mono", monospace; color: var(--ink); }
+  .demo-row .tag { background: var(--accent-dim); color: #eafffb; border-radius: 4px; padding: 2px 7px; font-size: 10.5px; }
+  .demo-row .tier { border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px; color: var(--ink-muted); }
+
+  /* ---------- Footer ---------- */
+  footer {
+    margin-top: 80px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--ink-faint);
+    font-family: "IBM Plex Mono", monospace;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+</style>
+
+<div class="shell">
+
+  <div class="masthead">
+    <div class="eyebrow"><span class="pip"></span>User guide</div>
+    <h1>Segment Bench</h1>
+    <p class="dek">A browser-based simulator for a TM1637-style 4-digit 7-segment display. Design and preview text/number message sequences with LONG / MEDIUM / SHORT timing tiers and ~150&nbsp;ms refresh quantization — without flashing any hardware.</p>
+    <div class="meta">No install · no account · nothing leaves your browser</div>
+  </div>
+
+  <nav class="toc" aria-label="Table of contents">
+    <a href="#display"><span class="n">01</span> The display &amp; transport</a>
+    <a href="#alphabet"><span class="n">02</span> The alphabet</a>
+    <a href="#message"><span class="n">03</span> Building a message</a>
+    <a href="#save-load"><span class="n">04</span> Saving &amp; loading</a>
+    <a href="#tiers"><span class="n">05</span> Timing tiers</a>
+    <a href="#export"><span class="n">06</span> Export config</a>
+    <a href="#gotchas"><span class="n">07</span> Notes &amp; gotchas</a>
+  </nav>
+
+  <!-- ================= QUICK REFERENCE ================= -->
+  <div class="quickref">
+    <h2>Quick reference</h2>
+    <p class="sub">The whole tool in one glance. Everything below is explained in full further down.</p>
+    <div class="qr-grid">
+      <div class="qr-item"><span class="qr-key">⟲ · Pause · Step ▸</span><span class="qr-desc">Restart from step 1, toggle autoplay, or advance one step manually.</span></div>
+      <div class="qr-item"><span class="qr-key">Brightness</span><span class="qr-desc">0–7 slider. Cosmetic only — affects the preview's glow, not what gets exported.</span></div>
+      <div class="qr-item"><span class="qr-key">+ Text / + Number / + Blank</span><span class="qr-desc">Add a step to the message. Up to 4 characters or a number per step.</span></div>
+      <div class="qr-item"><span class="qr-key">Checkbox on a step</span><span class="qr-desc">Unchecked = <b>skipped</b> during playback, but stays in the list (and in exports).</span></div>
+      <div class="qr-item"><span class="qr-key">LONG / MEDIUM / SHORT</span><span class="qr-desc">Three reusable durations. Per-step <b>custom</b> overrides them for one step.</span></div>
+      <div class="qr-item"><span class="qr-key">💾 Save data file</span><span class="qr-desc">Downloads a <code class="inline">.json</code> of tiers + brightness + steps. Nothing autosaves.</span></div>
+      <div class="qr-item"><span class="qr-key">📂 Load data file</span><span class="qr-desc">Reopens a saved sequence — always through today's display logic.</span></div>
+      <div class="qr-item"><span class="qr-key">⤓ Export config</span><span class="qr-desc">A firmware-facing JSON (no brightness/position) to paste or hand off.</span></div>
+    </div>
+  </div>
+
+  <!-- ================= 01 DISPLAY ================= -->
+  <section class="doc-section" id="display">
+    <h2>01 · Layout</h2>
+    <h3 class="section-title">The display &amp; transport</h3>
+    <p class="lede">The hero panel at the top of the page is a live render of a 4-digit display, driven by whatever step is currently playing.</p>
+
+    <p>The transport row underneath it controls playback, not content:</p>
+    <table>
+      <tr><th>Control</th><th>Does</th></tr>
+      <tr><td class="mono">⟲ Restart</td><td>Jumps to the first <i>enabled</i> step and resets its timer.</td></tr>
+      <tr><td class="mono">Play / Pause</td><td>Toggles autoplay. While paused, the display holds on the current step indefinitely.</td></tr>
+      <tr><td class="mono">Step ▸</td><td>Advances to the next enabled step by hand — works whether or not autoplay is running.</td></tr>
+      <tr><td class="mono">Brightness (0–7)</td><td>Fades the lit-segment glow in the preview only. It isn't part of a saved or exported file.</td></tr>
+    </table>
+
+    <p>The step counter on the right (<code class="inline">Step 3 / 11</code>) always reflects the step actually on screen, whether it got there by autoplay, a manual <kbd>Step ▸</kbd>, or you clicking directly into a field in the editor below — editing a step always jumps the display to it, so you're never typing into a step you can't see.</p>
+  </section>
+
+  <!-- ================= 02 ALPHABET ================= -->
+  <section class="doc-section" id="alphabet">
+    <h2>02 · Reference</h2>
+    <h3 class="section-title">The alphabet</h3>
+    <p class="lede">A 7-segment digit can't draw every letter the way you'd write it by hand — the reference grid on the right side of the workbench shows exactly what each character becomes.</p>
+
+    <div class="figure" id="fig-help">
+      <span class="fig-caption">Loading…</span>
+    </div>
+
+    <p>Two dot colors in the grid's legend mark how confident each glyph is:</p>
+    <ul>
+      <li><b style="color:var(--accent)">Common convention</b> — matches what most TM1637-style firmware and fonts actually render for that character.</li>
+      <li><b style="color:var(--ink-faint)">Playground</b> — a plausible approximation included for completeness, but less standardized; it may look different on your specific display.</li>
+    </ul>
+
+    <h3>Case matters here in a way it doesn't on paper</h3>
+    <p>Seven letters — <span class="mono">R N D T B Q Y</span> — only have <i>one</i> shape a 7-segment digit can physically draw. What most fonts call the "lowercase" form is the only renderable form, so typing the natural, all-caps spelling of a word still lights the same segments as its lowercase counterpart. Typing <code class="inline">END</code> reads on screen as <b>End</b>; <code class="inline">OVR</code> reads as <b>Ovr</b>. That's correct — it's what those letters actually look like lit up — not a typo in the tool.</p>
+
+    <div class="figure" id="fig-case">
+      <span class="fig-caption">Loading…</span>
+    </div>
+
+    <p><code class="inline">I</code> and <code class="inline">i</code> are the deliberate exception in the other direction: the bench draws them as two visibly different glyphs (a two-segment bar vs. a single stroke) so a word using both cases stays legible, even though real firmware usually sends the same single segment for both.</p>
+  </section>
+
+  <!-- ================= 03 MESSAGE ================= -->
+  <section class="doc-section" id="message">
+    <h2>03 · Editor</h2>
+    <h3 class="section-title">Building a message</h3>
+    <p class="lede">A message is an ordered list of <b>steps</b>. The display plays them in order, looping back to the first enabled step after the last.</p>
+
+    <h3>Step types</h3>
+    <ul>
+      <li><b>Text</b> — up to 4 characters, using the alphabet above. Longer input is truncated; unsupported characters show a warning right on the row.</li>
+      <li><b>Number</b> — any integer. Only the last 4 digits show, right-aligned, using true numeral segments (not the letter alphabet).</li>
+      <li><b>Blank / pause</b> — shorthand for an empty text step, typically on the <span class="pill">SHORT</span> tier, used as a gap between two words.</li>
+    </ul>
+
+    <h3>Each row in the list</h3>
+    <div class="demo-row">
+      <span class="idx">1</span>
+      <span class="chk"></span>
+      <span class="fields"><span class="tag">Text</span> HELP <span class="tier">MEDIUM</span></span>
+      <span class="mono" style="color:var(--ink-faint)">↑ ↓ ✕</span>
+    </div>
+    <p>From left to right: the step's position, an <b>include-in-playback</b> checkbox, the step's fields (kind, content, timing tier), and controls to reorder or delete it.</p>
+
+    <p>Unchecking a step's box removes it from playback immediately — if it was the step currently on screen, the display jumps off it right away rather than waiting out its duration — but the row stays in the list, and stays in anything you save or export. It's a way to shelve a step temporarily without losing it.</p>
+
+    <div class="callout">
+      <b>Live preview while you type.</b> Clicking into any field — the text box, the number, a tier — jumps the hero display straight to that step and holds it there. Autoplay won't cycle it away mid-edit; it resumes its normal timing once you move on.
+    </div>
+  </section>
+
+  <!-- ================= 04 SAVE/LOAD ================= -->
+  <section class="doc-section" id="save-load">
+    <h2>04 · Persistence</h2>
+    <h3 class="section-title">Saving &amp; loading your work</h3>
+    <p class="lede">Nothing here saves itself. Every edit is exploratory — a "let me just see what this looks like" — until you deliberately save it.</p>
+
+    <h3>💾 Save data file</h3>
+    <p>Downloads a plain <code class="inline">.json</code> file containing exactly three things: your timing <b>tiers</b>, the <b>brightness</b> setting, and the full <b>step list</b>. Nothing else — no copy of this page, no code.</p>
+    <p>The filename is suggested automatically from your message (see <a href="#gotchas">naming, below</a>), shown live as <span class="mono" style="color:var(--accent)">as <b>help-repeat-safe</b>.json</span> next to the button. If your browser is set to ask where to save, it'll flag it if that name already exists so you can bump it, e.g. to <code class="inline">-2</code>.</p>
+
+    <h3>📂 Load data file</h3>
+    <p>Reopens a file saved this way (or one produced by <a href="#export">Export config</a>) right here on this page. Open two files back to back to compare two sequences.</p>
+
+    <div class="callout">
+      <b>Why this stays two pieces, not one.</b> A data file carries no copy of the bench's own display logic — only the sequence data. That means every fix ever made to this page (a corrected glyph, a display bug fix) applies retroactively to every sequence you've ever saved, the next time you open it, with nothing to re-save. An earlier version of this tool baked the whole page into every saved file; that made each save a permanent fork, immune to later fixes. This version deliberately doesn't.
+    </div>
+  </section>
+
+  <!-- ================= 05 TIERS ================= -->
+  <section class="doc-section" id="tiers">
+    <h2>05 · Timing</h2>
+    <h3 class="section-title">Timing tiers</h3>
+    <p class="lede">Rather than setting a duration on every single step, most steps just reference one of three shared tiers — change the tier once, and every step using it updates together.</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Tier</th><th>Typical use</th><th>Range</th></tr>
+        <tr><td class="mono"><span class="pill">LONG</span></td><td>The main content of a message — a word or number meant to actually be read.</td><td class="mono">50–1200 ms</td></tr>
+        <tr><td class="mono"><span class="pill">MEDIUM</span></td><td>Secondary or repeated words, status labels.</td><td class="mono">50–1200 ms</td></tr>
+        <tr><td class="mono"><span class="pill">SHORT</span></td><td>Blanks and quick pulses between words.</td><td class="mono">20–1200 ms</td></tr>
+      </table>
+    </div>
+
+    <p>Any individual step can override its tier with <span class="pill">custom</span> and its own millisecond value, for the rare step that needs a duration none of the three tiers should be bent to fit.</p>
+
+    <h3>Why "actual" differs from what you typed</h3>
+    <p>The simulator polls for a step change every <b>~150&nbsp;ms</b> — deliberately matching the real firmware's own refresh loop, rather than timing steps to the exact millisecond. A duration doesn't end the instant it's reached; it ends at the <i>next poll after</i> that point. Each tier's row shows both numbers side by side, e.g.</p>
+
+    <div class="callout">
+      target <span class="mono">450ms</span> → <b class="mono" style="color:var(--accent)">~450ms</b> actual on screen
+    </div>
+    <p style="margin-top:-8px; font-size: 13px; color: var(--ink-faint);">A target that doesn't land on a clean multiple of 150 rounds up to the next poll — e.g. a target of 460ms would show <span class="mono">~600ms</span> actual. Real hardware adds its own timing jitter on top of this, which the simulator doesn't model.</p>
+  </section>
+
+  <!-- ================= 06 EXPORT ================= -->
+  <section class="doc-section" id="export">
+    <h2>06 · Handoff</h2>
+    <h3 class="section-title">Export config</h3>
+    <p class="lede">For handing a finished sequence to whoever's wiring it into actual firmware — a teammate, a repo, or a chat where you'd rather not describe the steps in words.</p>
+    <p><span class="pill">⤓ Export config</span> opens a read-only text box with the sequence as JSON: <code class="inline">tiers</code> and the full <code class="inline">steps</code> array, including any disabled steps (so nothing is silently dropped — it's left to whoever reads the export to decide what to do with them). <code class="inline">brightness</code> and playback position are deliberately left out, since neither has a real-firmware equivalent.</p>
+    <p>Copy it straight into a chat, or use <span class="pill">Download .json</span> to save it as a file.</p>
+    <div class="callout">This is <i>not</i> the same button as <b>Save data file</b> — export is for handing off to firmware; save/load is for keeping working on the sequence in this tool. Either file can be reopened here with <b>Load data file</b>, since both share the same core shape.</div>
+  </section>
+
+  <!-- ================= 07 GOTCHAS ================= -->
+  <section class="doc-section" id="gotchas">
+    <h2>07 · Fine print</h2>
+    <h3 class="section-title">Notes &amp; gotchas</h3>
+    <ul>
+      <li><b>Nothing autosaves — including across reloads.</b> Refreshing the page resets to the built-in example sequence. Save before you navigate away from anything you want to keep.</li>
+      <li><b>Text steps truncate at 4 characters</b> and flag any character with no glyph in the alphabet reference, right on the step's row.</li>
+      <li><b>Suggested filenames are a convention, not a lock.</b> Each word gets a short code plus a one-letter speed code (<span class="mono">L</span>/<span class="mono">M</span>/<span class="mono">S</span>, or <span class="mono">C&lt;ms&gt;</span> for custom), joined with hyphens — e.g. a HELP/SAFE/42 sequence might suggest <span class="mono">help-safe-42l</span>. Rename the download however you like; it has no effect on the file's contents.</li>
+      <li><b>Case is never folded</b> in that naming — "Hi" and "HI" are treated as different words, since they can look different on the actual display.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Segment Bench — user guide</span>
+    <span id="footer-date"></span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const SEG_A=1, SEG_B=2, SEG_C=4, SEG_D=8, SEG_E=16, SEG_F=32, SEG_G=64;
+  const NS = "http://www.w3.org/2000/svg";
+  const DIGIT_W=70, DIGIT_H=130, THICK=16, PAD=6, GAP=14;
+  const H_INSET = PAD, H_WIDTH = DIGIT_W - 2*H_INSET;
+  const G_TOP = DIGIT_H/2 - THICK/2, G_BOTTOM = DIGIT_H/2 + THICK/2;
+  const BIT = { A:SEG_A,B:SEG_B,C:SEG_C,D:SEG_D,E:SEG_E,F:SEG_F,G:SEG_G };
+
+  function segmentRects(originX) {
+    return {
+      A:{x:originX+H_INSET,y:PAD,w:H_WIDTH,h:THICK},
+      G:{x:originX+H_INSET,y:G_TOP,w:H_WIDTH,h:THICK},
+      D:{x:originX+H_INSET,y:DIGIT_H-PAD-THICK,w:H_WIDTH,h:THICK},
+      F:{x:originX+PAD,y:PAD,w:THICK,h:G_BOTTOM-PAD},
+      B:{x:originX+DIGIT_W-PAD-THICK,y:PAD,w:THICK,h:G_BOTTOM-PAD},
+      E:{x:originX+PAD,y:G_TOP,w:THICK,h:(DIGIT_H-PAD)-G_TOP},
+      C:{x:originX+DIGIT_W-PAD-THICK,y:G_TOP,w:THICK,h:(DIGIT_H-PAD)-G_TOP},
+    };
+  }
+
+  function buildStrip(masks) {
+    const count = masks.length;
+    const svg = document.createElementNS(NS, "svg");
+    const totalW = count*DIGIT_W + (count-1)*GAP;
+    svg.setAttribute("viewBox", `0 0 ${totalW} ${DIGIT_H}`);
+    for (let d=0; d<count; d++) {
+      const originX = d*(DIGIT_W+GAP);
+      const rects = segmentRects(originX);
+      const mask = masks[d] || 0;
+      const order = ["A","G","D","F","B","E","C"];
+      order.forEach((letter) => {
+        const r = rects[letter];
+        const el = document.createElementNS(NS, "rect");
+        el.setAttribute("x", r.x); el.setAttribute("y", r.y);
+        el.setAttribute("width", r.w); el.setAttribute("height", r.h);
+        el.setAttribute("rx", 2.5);
+        const lit = (mask & BIT[letter]) !== 0;
+        el.setAttribute("class", "seg-rect " + (lit ? "lit" : "unlit"));
+        svg.appendChild(el);
+        if (lit) svg.appendChild(el);
+      });
+    }
+    return svg;
+  }
+
+  function fillFigure(id, masks, captionHTML) {
+    const fig = document.getElementById(id);
+    fig.innerHTML = "";
+    fig.appendChild(buildStrip(masks));
+    const cap = document.createElement("span");
+    cap.className = "fig-caption";
+    cap.innerHTML = captionHTML;
+    fig.appendChild(cap);
+  }
+
+  // HELP
+  const H = SEG_B|SEG_C|SEG_E|SEG_F|SEG_G;
+  const E = SEG_A|SEG_D|SEG_E|SEG_F|SEG_G;
+  const L = SEG_D|SEG_E|SEG_F;
+  const P = SEG_A|SEG_B|SEG_E|SEG_F|SEG_G;
+  fillFigure("fig-help", [H,E,L,P], "<b>HELP</b>, as it actually renders — the alphabet grid shows every character this way before you commit it to a step.");
+
+  // END vs End (identical), and OVR
+  const N = SEG_C|SEG_E|SEG_G;
+  const D = SEG_B|SEG_C|SEG_D|SEG_E|SEG_G;
+  const O = SEG_A|SEG_B|SEG_C|SEG_D|SEG_E|SEG_F;
+  const V = SEG_C|SEG_D|SEG_E;
+  const R = SEG_E|SEG_G;
+  fillFigure("fig-case", [O,V,R,0], "Typing <code class=\"inline\">OVR</code> and typing <code class=\"inline\">Ovr</code> light the <b>identical</b> segments — shown here. There's only one physical shape for that letter.");
+
+  document.getElementById("footer-date").textContent = "documented " + new Date().toISOString().slice(0,10);
+})();
+</script>
