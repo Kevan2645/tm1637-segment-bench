@@ -228,6 +228,11 @@
 
   .warn { font-size: 11px; color: var(--danger); grid-column: 1 / -1; }
 
+  .target-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+  .target-row label { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink-muted); white-space: nowrap; }
+  .target-row input[type="text"], .target-row select { flex: 1; min-width: 160px; font-family: "IBM Plex Mono", monospace; }
+  .target-hint { font-size: 11px; color: var(--ink-faint); margin: 0 0 14px; }
+
   .step-actions { display: flex; gap: 4px; }
 
   .panel-footer { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -315,12 +320,15 @@
   <div class="panel save-bar">
     <div class="save-row">
       <button id="btn-save-file" class="primary">💾 Save data file&hellip;</button>
+      <button id="btn-save-as-file" class="small" hidden>Save As&hellip;</button>
       <span class="save-name">as <b id="save-name-preview"></b>.json</span>
       <button id="btn-load-file">📂 Load data file&hellip;</button>
       <input type="file" id="load-file-input" accept="application/json,.json" hidden>
     </div>
-    <p class="save-hint">Nothing here is saved automatically -- edits are exploratory until you click "Save data file". That downloads a plain JSON file -- tiers, brightness, and the step list, nothing else -- under the name shown; with your browser set to ask where to save, the dialog will warn you if that name already exists so you can increment it. Reopen a saved sequence later with "Load data file", right here on THIS page. A data file never carries its own copy of this tool's display logic, so it can't go stale the way a saved copy of the whole page could: if this page ever gets a fix (a new supported character, a display correction), every data file you load through it benefits immediately -- nothing about a sequence you saved months ago needs re-saving. Open two different data files, one after another, to compare sequences.</p>
-    <p class="save-hint" id="load-status"></p>
+    <p class="save-hint">Nothing here is saved automatically -- edits are exploratory until you click "Save data file". Where your browser supports it (Chrome, Edge, and other Chromium browsers), that opens your OS's native save dialog the first time -- pick a name and location there, and the OS itself handles the rest, including warning you before it replaces an existing file, since that's exactly the job it's built for. Every save after that quietly overwrites that same file with no dialog at all, the same way Ctrl+S behaves in a native app; use "Save As..." to explicitly pick a different file or location instead of overwriting the current one. "Load data file" uses that same native picker and reconnects Save to whichever file you open, so a load-then-edit-then-save round trip always lands back on the same file. On a browser without this support (Firefox, Safari as of this writing), both buttons fall back to a plain download instead -- your browser's own download settings then decide whether that overwrites, renames, or asks, the same philosophy applied through the older mechanism.</p>
+    <p class="save-hint">A browser page has no way to ask "open where this HTML file itself lives" -- there's no such API, for the same sandboxing reasons a page can't browse your disk on its own -- so the very first save or load on a given browser just opens wherever that browser's dialog defaults to. From then on, though, this remembers whichever folder you last saved to or loaded from (even across closing the tab or restarting the browser) and every picker after that opens there automatically. So the one-time move is: the first time you save, navigate to the folder this file lives in (or wherever you keep your sequences) -- after that it'll keep defaulting there on its own.</p>
+    <p class="save-hint">A data file never carries its own copy of this tool's display logic, so it can't go stale the way a saved copy of the whole page could: if this page ever gets a fix (a new supported character, a display correction), every data file you load through it benefits immediately -- nothing about a sequence you saved months ago needs re-saving. Open two different data files, one after another, to compare sequences.</p>
+    <p class="save-hint" id="file-status"></p>
   </div>
 
   <div class="hero">
@@ -343,6 +351,15 @@
   <div class="workbench">
     <section class="panel messages-panel">
       <h2>Message</h2>
+      <div class="target-row">
+        <label for="target-select">Firmware target</label>
+        <select id="target-select"></select>
+      </div>
+      <div class="target-row" id="target-note-row">
+        <label for="target-note-input">Note</label>
+        <input type="text" id="target-note-input" placeholder="optional -- extra context, or the name/description if you picked &quot;Other&quot;" spellcheck="false">
+      </div>
+      <p class="target-hint">Which display state or cycle in the firmware this sequence is meant to drive -- saved and exported with the file, so that travels with the sequence instead of needing to be explained separately each time.</p>
       <div id="steps-list"></div>
       <div class="panel-footer">
         <button id="btn-add-text">+ Text step</button>
@@ -600,7 +617,26 @@
   }
 
   // ================= State =================
+  // Small fixed vocabulary of the display states/cycles that exist in YOUR firmware, keyed by whatever
+  // identifier name your own code uses for each one, so a saved sequence unambiguously says which state
+  // it's meant to drive -- no need to explain that separately each time a file changes hands. The two
+  // entries below are placeholders: edit this array to match your own project (add, remove, rename --
+  // the `id` is what's written into the saved/exported JSON as `target`, so keep ids stable once you've
+  // tagged sequences with them, and prefer renaming a `label` over renaming an `id` if you can help it).
+  // "other" is the escape hatch for anything not yet in the firmware (a proposed new state, a one-off
+  // experiment); the note field carries the detail. Loading a file whose `target` doesn't match any id
+  // here falls back to "other" and folds the original value into the note, so nothing is silently lost
+  // even if you rename or remove an entry later.
+  const FIRMWARE_TARGETS = [
+    { id: "", label: "-- select which sequence this updates --" },
+    { id: "myDisplayStateA", label: "myDisplayStateA -- describe what this state shows" },
+    { id: "myDisplayStateB", label: "myDisplayStateB -- describe what this state shows" },
+    { id: "other", label: "Other / not yet in the firmware -- describe in the note field" },
+  ];
+
   const DEFAULTS = {
+    target: "",
+    targetNote: "",
     tiers: { long: 450, medium: 250, short: 120 },
     brightness: 4,
     steps: [
@@ -716,8 +752,15 @@
   }
 
   // ================= Step editor UI =================
+  // Inserts a new step right after the one currently showing (or paused on) -- NOT appended at the end
+  // of the list. Before this, every "+ Text step" / "+ Number step" / "+ Blank / pause" click landed at
+  // the bottom of a potentially long sequence, which is almost never where you actually meant it to go,
+  // especially while paused partway through reviewing/editing a specific spot. currentStep's own index
+  // is left untouched -- the insert always happens strictly after it, so the step you were paused on
+  // (and playback/pause state generally) is undisturbed; the new step just becomes what plays next.
   function addStep(step) {
-    state.steps.push(step);
+    const insertAt = state.steps.length === 0 ? 0 : Math.min(currentStep + 1, state.steps.length);
+    state.steps.splice(insertAt, 0, step);
     if (currentStep >= state.steps.length) currentStep = 0;
     saveState();
     renderStepsList();
@@ -984,13 +1027,17 @@
   //     sequence would collide on that first letter, both escalate to the shortest prefix that tells
   //     them apart (falling back to the whole word, max 4 chars, if they share every character up to
   //     the shorter one's length).
-  //   - case is never folded here: "Hi" and "HI" are different words as far as naming is concerned
-  //     (this display is case-sensitive -- see the CHAR_MAP comment on R/N/D/etc. -- so they can be
-  //     genuinely different things on screen) and get their own abbreviations, escalating apart from
-  //     each other same as any other two words that share a prefix. If that ever makes two DIFFERENT
-  //     sequences suggest the identical filename, that's just an ordinary filename collision -- your
-  //     browser's save dialog already flags an existing name so you can increment it (see the save
-  //     bar's hint text); naming doesn't need its own separate collision handling for that.
+  //   - words are grouped by RENDERED signature, not literal spelling: "OVr" and "Ovr" are different
+  //     strings but light the identical segments on a real 7-segment digit (V and v share one segment
+  //     pattern -- see the CHAR_MAP comment on R/N/D/etc.), so they share one abbreviation code instead
+  //     of the naming logic inventing a misleading two-way split for what the display only ever shows
+  //     as a single message. Words that render differently still get separate codes even when they
+  //     share letters or a prefix -- e.g. "Hi" vs "HI" -- because i/I are deliberately distinct glyphs
+  //     on this bench (again see that CHAR_MAP comment), so those two really do look different on
+  //     screen. If two SEQUENCES with different visuals still end up suggesting the same filename,
+  //     that's just an ordinary filename collision -- your browser's save dialog already flags an
+  //     existing name so you can increment it (see the save bar's hint text); naming doesn't need its
+  //     own separate collision handling for that.
   function speedCode(step) {
     if (step.tier === "long") return "L";
     if (step.tier === "medium") return "M";
@@ -999,7 +1046,14 @@
   }
 
   function wordAbbreviations(steps) {
-    const words = [];
+    // Groups words by RENDERED signature, not literal spelling -- see the naming-convention comment
+    // block above. "OVr" and "Ovr" are different strings but render pixel-identical on a real 7-segment
+    // digit, so they're folded into one word here and share a single abbreviation code; words that
+    // render differently still get separate codes even if they share letters (e.g. "Hi" vs "HI").
+    const spellings = [];            // every distinct spelling, first-seen order
+    const signatureOf = {};          // spelling -> rendered-segment signature
+    const representativeFor = {};    // signature -> first spelling seen for that render
+
     steps.forEach((s) => {
       // .trim() before treating text as a "word" to abbreviate -- a step like " SEt" (leading blank,
       // used to right-align a word inside the full 4-digit width) is meaningfully "SEt" for naming
@@ -1007,12 +1061,21 @@
       // handled as a blank step below, same as an empty string.
       if (s.kind === "text" && s.text && s.text.trim()) {
         const w = s.text.trim();
-        if (!words.includes(w)) words.push(w);
+        if (w in signatureOf) return;
+        const signature = textToMask(w).mask.join(",");
+        signatureOf[w] = signature;
+        spellings.push(w);
+        if (!(signature in representativeFor)) representativeFor[signature] = w;
       }
     });
-    const codes = {};
+
+    // Only each render's representative spelling competes in the prefix-escalation below -- that's
+    // what decides how many characters a code needs to stay unique among the OTHER renders present.
+    const representatives = [...new Set(spellings.map((w) => representativeFor[signatureOf[w]]))];
+
+    const codes = {}; // representative spelling -> code
     for (let len = 1; len <= 4; len++) {
-      const remaining = words.filter((w) => !(w in codes));
+      const remaining = representatives.filter((w) => !(w in codes));
       if (remaining.length === 0) break;
       const counts = {};
       remaining.forEach((w) => {
@@ -1024,7 +1087,12 @@
         if (counts[prefix] === 1 || len >= w.length) codes[w] = prefix;
       });
     }
-    return codes;
+
+    // Fan each representative's code back out to every spelling that shares its render, so e.g. a step
+    // spelled "Ovr" resolves to the same code as one spelled "OVr" when both render identically.
+    const result = {};
+    spellings.forEach((w) => { result[w] = codes[representativeFor[signatureOf[w]]]; });
+    return result;
   }
 
   function suggestVariantName(steps) {
@@ -1044,9 +1112,96 @@
   // steps -- plus a "name" field (the same suggested name shown in the save bar and used for the
   // filename) purely as a human-readable label for anyone opening the raw JSON. No code, no HTML, no
   // copy of this page: see the long comment on `state` above for why that separation is the whole point.
+  //
+  // Where the browser supports it (the File System Access API -- Chrome, Edge, and other Chromium
+  // browsers), file creation and overwrites are handled by the OS's own native save dialog rather than
+  // reimplemented here: the first save opens it to pick a name/location, and the OS itself decides
+  // whether to warn before replacing an existing file -- exactly the job it's built for. Every save
+  // after that writes straight back to the same file with no dialog, the same way Ctrl+S behaves in a
+  // native app, via the FileSystemFileHandle kept in `fileHandle` below. "Save As..." explicitly reopens
+  // the picker for a different file/location without disturbing the one currently open. Loading uses
+  // the matching native open picker, so a load-then-edit-then-save round trip reconnects Save to that
+  // exact file. Browsers without this API (Firefox, Safari as of this writing) fall back to the older
+  // <a download> approach -- still deliberately not second-guessed here: the browser's own download
+  // manager decides whether that overwrites, renames, or asks, per its own settings, same philosophy
+  // applied through a different, older mechanism.
+  //
+  // One thing the picker DOESN'T do on its own is start in a useful folder. Browsers deliberately give a
+  // web page no way to ask "open where this script/page file lives" -- there's no script-location-to-
+  // folder-handle API, for the same sandboxing reasons a page can't read arbitrary paths off your disk --
+  // so the very first save on a given browser profile opens wherever that browser's picker defaults to
+  // (commonly Downloads or wherever it was last pointed by ANY site). What the API does allow is passing
+  // a previously-obtained FileSystemHandle as `startIn`, which opens the picker in that handle's folder --
+  // so once you've saved or loaded anywhere once, every picker after that (Save, Save As, Load) defaults
+  // into that same folder, remembered across reloads and browser restarts via the small IndexedDB helper
+  // below (handles are structured-cloneable, so they store directly; plain localStorage can't hold them).
+  // The permission that comes with a remembered handle isn't guaranteed to persist as "granted" across a
+  // browser restart, so it's re-checked (and re-requested if needed) right before each picker opens.
+  const supportsFileSystemAccess = "showSaveFilePicker" in window && "showOpenFilePicker" in window;
+  const JSON_PICKER_TYPES = [{ description: "Segment Bench sequence", accept: { "application/json": [".json"] } }];
+  let fileHandle = null; // FileSystemFileHandle Save currently writes to, or null (nothing open yet)
+
+  const FOLDER_MEMORY_DB = "segment-bench-fs";
+  const FOLDER_MEMORY_STORE = "handles";
+  const FOLDER_MEMORY_KEY = "lastFileHandle";
+
+  function openFolderMemoryDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(FOLDER_MEMORY_DB, 1);
+      req.onupgradeneeded = () => req.result.createObjectStore(FOLDER_MEMORY_STORE);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // Remembers a file handle purely so its FOLDER can be reused as a picker starting point next time --
+  // failure here is non-fatal, it just means the next picker falls back to the browser's own default.
+  async function rememberFileHandle(handle) {
+    try {
+      const db = await openFolderMemoryDB();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(FOLDER_MEMORY_STORE, "readwrite");
+        tx.objectStore(FOLDER_MEMORY_STORE).put(handle, FOLDER_MEMORY_KEY);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (err) {
+      /* non-fatal, see above */
+    }
+  }
+
+  // Resolves to a handle usable as `startIn` (opens a picker in that file's folder), or null if nothing's
+  // remembered yet, permission for it wasn't (re)granted, or the remembered file/folder is gone. Must be
+  // called from inside the same click handler that opens the picker: requestPermission needs the same
+  // "the user just clicked something" activation that showSaveFilePicker itself relies on.
+  async function getRememberedStartIn() {
+    try {
+      const db = await openFolderMemoryDB();
+      const handle = await new Promise((resolve, reject) => {
+        const tx = db.transaction(FOLDER_MEMORY_STORE, "readonly");
+        const req = tx.objectStore(FOLDER_MEMORY_STORE).get(FOLDER_MEMORY_KEY);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+      if (!handle) return null;
+      let perm = await handle.queryPermission({ mode: "read" });
+      if (perm !== "granted") perm = await handle.requestPermission({ mode: "read" });
+      return perm === "granted" ? handle : null;
+    } catch (err) {
+      return null; // e.g. the remembered file no longer exists on disk -- just skip the hint
+    }
+  }
+
   function buildDataFileJSON() {
     return JSON.stringify(
-      { name: suggestVariantName(state.steps), tiers: state.tiers, brightness: state.brightness, steps: state.steps },
+      {
+        name: suggestVariantName(state.steps),
+        target: state.target || "",
+        targetNote: state.targetNote || "",
+        tiers: state.tiers,
+        brightness: state.brightness,
+        steps: state.steps,
+      },
       null,
       2
     );
@@ -1056,21 +1211,75 @@
     document.getElementById("save-name-preview").textContent = suggestVariantName(state.steps);
   }
 
+  // Writes the current sequence straight to an already-picked FileSystemFileHandle -- used for every
+  // "quiet" save once one exists, so repeat saves behave like Ctrl+S rather than reopening a picker.
+  async function writeToHandle(handle) {
+    const writable = await handle.createWritable();
+    await writable.write(buildDataFileJSON());
+    await writable.close();
+  }
+
+  // Plain-download fallback for browsers without the File System Access API -- the same mechanism this
+  // tool always used before that API existed. Deliberately does not try to detect or warn about an
+  // existing file of the same name; that's left entirely to the browser's own download handling.
+  function fallbackDownload(name) {
+    const blob = new Blob([buildDataFileJSON()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   function wireSaveDataFile() {
     updateSaveNamePreview();
-    document.getElementById("btn-save-file").addEventListener("click", () => {
-      const name = suggestVariantName(state.steps);
-      const json = buildDataFileJSON();
-      const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = name + ".json";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    });
+    const status = document.getElementById("file-status");
+    const saveBtn = document.getElementById("btn-save-file");
+    const saveAsBtn = document.getElementById("btn-save-as-file");
+
+    if (supportsFileSystemAccess) {
+      saveAsBtn.hidden = false;
+
+      saveBtn.addEventListener("click", async () => {
+        try {
+          if (!fileHandle) {
+            const opts = { suggestedName: suggestVariantName(state.steps) + ".json", types: JSON_PICKER_TYPES };
+            const startIn = await getRememberedStartIn();
+            if (startIn) opts.startIn = startIn;
+            fileHandle = await window.showSaveFilePicker(opts);
+            rememberFileHandle(fileHandle);
+          }
+          await writeToHandle(fileHandle);
+          status.textContent = `Saved to "${fileHandle.name}".`;
+        } catch (err) {
+          if (err.name !== "AbortError") status.textContent = `Couldn't save: ${err.message}`;
+        }
+      });
+
+      saveAsBtn.addEventListener("click", async () => {
+        try {
+          const opts = { suggestedName: suggestVariantName(state.steps) + ".json", types: JSON_PICKER_TYPES };
+          const startIn = await getRememberedStartIn();
+          if (startIn) opts.startIn = startIn;
+          const handle = await window.showSaveFilePicker(opts);
+          fileHandle = handle;
+          rememberFileHandle(fileHandle);
+          await writeToHandle(fileHandle);
+          status.textContent = `Saved to "${fileHandle.name}".`;
+        } catch (err) {
+          if (err.name !== "AbortError") status.textContent = `Couldn't save: ${err.message}`;
+        }
+      });
+    } else {
+      // No File System Access support -- plain download, same as this tool always did before that API
+      // existed. The browser's own download manager decides whether this overwrites, renames, or asks.
+      saveBtn.addEventListener("click", () => {
+        fallbackDownload(suggestVariantName(state.steps));
+      });
+    }
   }
 
   // Accepts either a file saved by THIS save/load pair ({tiers, brightness, steps}) or one produced by
@@ -1090,6 +1299,8 @@
     }
     const tiers = parsed.tiers && typeof parsed.tiers === "object" ? parsed.tiers : {};
     return {
+      target: typeof parsed.target === "string" ? parsed.target : "",
+      targetNote: typeof parsed.targetNote === "string" ? parsed.targetNote : "",
       tiers: {
         long: Number.isFinite(tiers.long) ? tiers.long : DEFAULTS.tiers.long,
         medium: Number.isFinite(tiers.medium) ? tiers.medium : DEFAULTS.tiers.medium,
@@ -1100,42 +1311,110 @@
     };
   }
 
+  // Reconciles state.target against the fixed FIRMWARE_TARGETS vocabulary and reflects the result into
+  // the <select>/note inputs. A value that matches a known id selects it normally. A non-empty value
+  // that DOESN'T match anything (an older file, a hand-edited one, a name from a future firmware rev)
+  // falls back to "other" rather than silently dropping it -- and if there was no note already, the
+  // unrecognized raw value is folded into the note so it's still visible, not lost.
+  function syncTargetFieldsFromState() {
+    const select = document.getElementById("target-select");
+    const noteInput = document.getElementById("target-note-input");
+    const known = FIRMWARE_TARGETS.some((t) => t.id === state.target);
+    if (state.target && !known) {
+      if (!state.targetNote) state.targetNote = `(was: ${state.target})`;
+      state.target = "other";
+    }
+    select.value = state.target || "";
+    noteInput.value = state.targetNote || "";
+  }
+
+  function wireTargetField() {
+    const select = document.getElementById("target-select");
+    const noteInput = document.getElementById("target-note-input");
+    FIRMWARE_TARGETS.forEach((t) => {
+      const opt = document.createElement("option");
+      opt.value = t.id;
+      opt.textContent = t.label;
+      select.appendChild(opt);
+    });
+    syncTargetFieldsFromState();
+    select.addEventListener("change", (e) => {
+      state.target = e.target.value;
+      saveState();
+    });
+    noteInput.addEventListener("input", (e) => {
+      state.targetNote = e.target.value;
+      saveState();
+    });
+  }
+
   function wireLoadDataFile() {
     const input = document.getElementById("load-file-input");
-    const status = document.getElementById("load-status");
-    document.getElementById("btn-load-file").addEventListener("click", () => {
-      status.textContent = "";
-      input.click();
-    });
-    input.addEventListener("change", async () => {
-      const file = input.files[0];
-      input.value = ""; // reset so picking the exact same filename again still fires "change"
-      if (!file) return;
-      try {
-        const text = await file.text();
-        state = parseDataFile(text);
-        currentStep = findNextEnabledStep(-1); // don't land on a step this file left disabled
-        stepStart = performance.now();
-        renderStepsList();
-        renderCurrentStep();
-        // Re-sync the timing-panel inputs to the newly-loaded tiers. NOT a second wireTierControls()
-        // call -- that would attach a second set of "input" listeners on top of the ones from init(),
-        // double-writing state.tiers on every future drag. The existing listeners already read/write
-        // whatever `state` currently refers to (closures see the reassignment above just fine), so all
-        // that's left is reflecting the loaded values into the inputs themselves.
-        ["long", "medium", "short"].forEach((t) => {
-          document.getElementById(`tier-${t}`).value = state.tiers[t];
-          document.getElementById(`tier-${t}-range`).value = state.tiers[t];
-        });
-        renderTierActuals();
-        document.getElementById("brightness").value = state.brightness;
-        document.getElementById("brightness-val").textContent = state.brightness;
-        updateSaveNamePreview();
-        status.textContent = `Loaded "${file.name}".`;
-      } catch (err) {
-        status.textContent = `Couldn't load that file: ${err.message}`;
-      }
-    });
+    const status = document.getElementById("file-status");
+
+    function applyLoadedState(newState, loadedName) {
+      state = newState;
+      currentStep = findNextEnabledStep(-1); // don't land on a step this file left disabled
+      stepStart = performance.now();
+      renderStepsList();
+      renderCurrentStep();
+      // Re-sync the timing-panel inputs to the newly-loaded tiers. NOT a second wireTierControls()
+      // call -- that would attach a second set of "input" listeners on top of the ones from init(),
+      // double-writing state.tiers on every future drag. The existing listeners already read/write
+      // whatever `state` currently refers to (closures see the reassignment above just fine), so all
+      // that's left is reflecting the loaded values into the inputs themselves.
+      ["long", "medium", "short"].forEach((t) => {
+        document.getElementById(`tier-${t}`).value = state.tiers[t];
+        document.getElementById(`tier-${t}-range`).value = state.tiers[t];
+      });
+      renderTierActuals();
+      document.getElementById("brightness").value = state.brightness;
+      document.getElementById("brightness-val").textContent = state.brightness;
+      syncTargetFieldsFromState();
+      updateSaveNamePreview();
+      status.textContent = `Loaded "${loadedName}".`;
+    }
+
+    if (supportsFileSystemAccess) {
+      document.getElementById("btn-load-file").addEventListener("click", async () => {
+        status.textContent = "";
+        try {
+          const opts = { types: JSON_PICKER_TYPES };
+          const startIn = await getRememberedStartIn();
+          if (startIn) opts.startIn = startIn;
+          const [handle] = await window.showOpenFilePicker(opts);
+          const file = await handle.getFile();
+          const text = await file.text();
+          applyLoadedState(parseDataFile(text), file.name);
+          // Reconnects Save to this exact file, so the next save quietly overwrites it -- same as
+          // opening a document in a native app and hitting Ctrl+S. Also becomes the new remembered
+          // folder, so a Save right after loading defaults into the folder you just loaded from.
+          fileHandle = handle;
+          rememberFileHandle(fileHandle);
+        } catch (err) {
+          if (err.name !== "AbortError") status.textContent = `Couldn't load that file: ${err.message}`;
+        }
+      });
+    } else {
+      // No File System Access support -- classic hidden <input type=file> picker. A file picked this
+      // way carries no writable handle (browsers don't expose one for security reasons), so Save falls
+      // back to a plain download afterward rather than a quiet overwrite.
+      document.getElementById("btn-load-file").addEventListener("click", () => {
+        status.textContent = "";
+        input.click();
+      });
+      input.addEventListener("change", async () => {
+        const file = input.files[0];
+        input.value = ""; // reset so picking the exact same filename again still fires "change"
+        if (!file) return;
+        try {
+          const text = await file.text();
+          applyLoadedState(parseDataFile(text), file.name);
+        } catch (err) {
+          status.textContent = `Couldn't load that file: ${err.message}`;
+        }
+      });
+    }
   }
 
   // ================= Transport wiring =================
@@ -1182,7 +1461,17 @@
   // whoever reads this back can decide what to do with them). Deliberately excludes brightness and
   // playback position, which have no real-firmware equivalent.
   function buildExportJSON() {
-    return JSON.stringify({ name: suggestVariantName(state.steps), tiers: state.tiers, steps: state.steps }, null, 2);
+    return JSON.stringify(
+      {
+        name: suggestVariantName(state.steps),
+        target: state.target || "",
+        targetNote: state.targetNote || "",
+        tiers: state.tiers,
+        steps: state.steps,
+      },
+      null,
+      2
+    );
   }
 
   function wireExport() {
@@ -1231,6 +1520,7 @@
     currentStep = findNextEnabledStep(-1); // don't start on a step a previous visit left disabled
     renderStepsList();
     renderAlphabet();
+    wireTargetField();
     wireSaveDataFile();
     wireLoadDataFile();
     wireTierControls();

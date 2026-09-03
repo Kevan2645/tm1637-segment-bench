@@ -320,9 +320,10 @@
       <div class="qr-item"><span class="qr-key">+ Text / + Number / + Blank</span><span class="qr-desc">Add a step to the message. Up to 4 characters or a number per step.</span></div>
       <div class="qr-item"><span class="qr-key">Checkbox on a step</span><span class="qr-desc">Unchecked = <b>skipped</b> during playback, but stays in the list (and in exports).</span></div>
       <div class="qr-item"><span class="qr-key">LONG / MEDIUM / SHORT</span><span class="qr-desc">Three reusable durations. Per-step <b>custom</b> overrides them for one step.</span></div>
-      <div class="qr-item"><span class="qr-key">💾 Save data file</span><span class="qr-desc">Downloads a <code class="inline">.json</code> of tiers + brightness + steps. Nothing autosaves.</span></div>
+      <div class="qr-item"><span class="qr-key">💾 Save data file</span><span class="qr-desc">Writes a <code class="inline">.json</code> of tiers + brightness + steps + firmware target. Nothing autosaves.</span></div>
       <div class="qr-item"><span class="qr-key">📂 Load data file</span><span class="qr-desc">Reopens a saved sequence — always through today's display logic.</span></div>
       <div class="qr-item"><span class="qr-key">⤓ Export config</span><span class="qr-desc">A firmware-facing JSON (no brightness/position) to paste or hand off.</span></div>
+      <div class="qr-item"><span class="qr-key">Firmware target</span><span class="qr-desc">Tags a sequence with which display state it drives. Customize the list for your own project.</span></div>
     </div>
   </div>
 
@@ -397,6 +398,8 @@
     <div class="callout">
       <b>Live preview while you type.</b> Clicking into any field — the text box, the number, a tier — jumps the hero display straight to that step and holds it there. Autoplay won't cycle it away mid-edit; it resumes its normal timing once you move on.
     </div>
+
+    <p><b>+ Text step</b>, <b>+ Number step</b>, and <b>+ Blank / pause</b> all insert the new row right after whichever step is currently active, rather than tacking it onto the end of the list — that's almost always where you actually want it while you're mid-edit on a sequence.</p>
   </section>
 
   <!-- ================= 04 SAVE/LOAD ================= -->
@@ -406,15 +409,20 @@
     <p class="lede">Nothing here saves itself. Every edit is exploratory — a "let me just see what this looks like" — until you deliberately save it.</p>
 
     <h3>💾 Save data file</h3>
-    <p>Downloads a plain <code class="inline">.json</code> file containing exactly three things: your timing <b>tiers</b>, the <b>brightness</b> setting, and the full <b>step list</b>. Nothing else — no copy of this page, no code.</p>
-    <p>The filename is suggested automatically from your message (see <a href="#gotchas">naming, below</a>), shown live as <span class="mono" style="color:var(--accent)">as <b>help-repeat-safe</b>.json</span> next to the button. If your browser is set to ask where to save, it'll flag it if that name already exists so you can bump it, e.g. to <code class="inline">-2</code>.</p>
+    <p>Writes a plain <code class="inline">.json</code> file containing exactly your timing <b>tiers</b>, the <b>brightness</b> setting, the full <b>step list</b>, and the <a href="#firmware-target">firmware target tag</a>, if you've set one. Nothing else — no copy of this page, no code.</p>
+    <p>The filename is suggested automatically from your message (see <a href="#gotchas">naming, below</a>), shown live as <span class="mono" style="color:var(--accent)">as <b>help-repeat-safe</b>.json</span> next to the button. Where your browser supports it (Chrome, Edge, and other Chromium browsers), clicking it opens your OS's own native save dialog the first time — pick a name and folder there, and the OS handles the rest, including warning you before it replaces an existing file. Every save after that quietly overwrites that same file with no dialog, the same way Ctrl+S works in a native app; use <b>Save As…</b> to explicitly pick a different file or folder instead. On a browser without that support (Firefox, Safari as of this writing) it falls back to a plain download instead, and your browser's own download settings decide whether that overwrites, renames, or asks.</p>
+    <p>Once you've saved or loaded anywhere, every picker after that — Save, Save As, Load — defaults into that same folder automatically, remembered even across closing the tab or restarting the browser. There's no way for a web page to know its own file's folder up front (a deliberate browser sandboxing limit), so the very first save on a fresh browser profile opens wherever that browser's dialog happens to default to; pick the folder you want that first time, and it'll keep defaulting there from then on.</p>
 
     <h3>📂 Load data file</h3>
-    <p>Reopens a file saved this way (or one produced by <a href="#export">Export config</a>) right here on this page. Open two files back to back to compare two sequences.</p>
+    <p>Reopens a file saved this way (or one produced by <a href="#export">Export config</a>) right here on this page, and reconnects <b>Save</b> to that exact file so a load-then-edit-then-save round trip lands back on the same one. Open two files back to back to compare two sequences.</p>
 
     <div class="callout">
       <b>Why this stays two pieces, not one.</b> A data file carries no copy of the bench's own display logic — only the sequence data. That means every fix ever made to this page (a corrected glyph, a display bug fix) applies retroactively to every sequence you've ever saved, the next time you open it, with nothing to re-save. An earlier version of this tool baked the whole page into every saved file; that made each save a permanent fork, immune to later fixes. This version deliberately doesn't.
     </div>
+
+    <h3 id="firmware-target">Tagging which display state a sequence drives</h3>
+    <p>The <b>Firmware target</b> dropdown above the step list lets you record which state or cycle in your own firmware a sequence is meant to drive — <span class="mono">showBootMessage</span>, <span class="mono">showErrorState</span>, whatever your project calls it — so that travels with the saved/exported file instead of needing to be explained separately every time it changes hands. An optional <b>Note</b> field next to it carries extra context, or the description when you pick <span class="mono">Other</span> for something not yet in your firmware.</p>
+    <p>The dropdown ships with two placeholder entries — edit the <code class="inline">FIRMWARE_TARGETS</code> array near the top of the <code class="inline">&lt;script&gt;</code> block to replace them with your own project's actual state names (see <a href="README.md#customizing-for-your-own-display">Customizing</a> in the README). Loading a file whose saved target doesn't match anything in your current list falls back to <span class="mono">Other</span> and folds the original value into the note, so nothing gets silently dropped if you rename or remove an entry later.</p>
   </section>
 
   <!-- ================= 05 TIERS ================= -->
@@ -461,7 +469,7 @@
       <li><b>Nothing autosaves — including across reloads.</b> Refreshing the page resets to the built-in example sequence. Save before you navigate away from anything you want to keep.</li>
       <li><b>Text steps truncate at 4 characters</b> and flag any character with no glyph in the alphabet reference, right on the step's row.</li>
       <li><b>Suggested filenames are a convention, not a lock.</b> Each word gets a short code plus a one-letter speed code (<span class="mono">L</span>/<span class="mono">M</span>/<span class="mono">S</span>, or <span class="mono">C&lt;ms&gt;</span> for custom), joined with hyphens — e.g. a HELP/SAFE/42 sequence might suggest <span class="mono">help-safe-42l</span>. Rename the download however you like; it has no effect on the file's contents.</li>
-      <li><b>Case is never folded</b> in that naming — "Hi" and "HI" are treated as different words, since they can look different on the actual display.</li>
+      <li><b>Spellings that render identically share one code.</b> Two of the seven single-shape letters — <span class="mono">R N D T B Q Y</span> — mean a word like "Ovr" and its all-caps spelling "OVR" light the exact same segments (see <a href="#alphabet">the alphabet section above</a>), so the naming groups them under one shared code instead of two different ones. Spellings that genuinely render differently (like "Hi" vs "HI" — <span class="mono">I</span>/<span class="mono">i</span> are drawn as distinct glyphs here) still get separate codes.</li>
     </ul>
   </section>
 

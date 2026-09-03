@@ -12,6 +12,8 @@ ADDING STEPS
   + Text step      Up to 4 chars, from the alphabet reference
   + Number step    Any integer, last 4 digits shown, right-aligned
   + Blank / pause  Empty text step, usually on the SHORT tier
+  All three insert right after the CURRENT step, not at the end
+  of the list -- lands where you're actually working.
 
 EACH STEP ROW
   Checkbox   Unchecked = skipped in playback, but stays in the list
@@ -30,14 +32,39 @@ TIMING TIERS
   jitter on top of this.
 
 SAVE vs LOAD vs EXPORT
-  💾 Save data file   Downloads .json: tiers + brightness + steps.
-                      Nothing autosaves -- save before navigating away.
+  💾 Save data file   Writes .json: tiers + brightness + steps +
+                      firmware target (see below). Nothing autosaves
+                      -- save before navigating away. Chrome/Edge:
+                      opens your OS's native save dialog; overwrites
+                      the same file quietly after that, like Ctrl+S.
+                      "Save As..." picks a different file/folder.
+                      Firefox/Safari: falls back to a plain download.
   📂 Load data file   Reopens a saved sequence, through TODAY's
                       display logic (fixes made to the page apply
-                      retroactively to old saves).
+                      retroactively to old saves). Reconnects Save
+                      to the exact file you opened.
   ⤓ Export config     Firmware-facing JSON: tiers + steps (incl.
-                      disabled ones), no brightness/position.
-                      For handing off, not for continuing to edit.
+                      disabled ones) + firmware target, no
+                      brightness/position. For handing off, not
+                      for continuing to edit.
+
+  Folder memory: once you've saved/loaded anywhere, every picker
+  after that (Save, Save As, Load) defaults into that same folder
+  automatically -- remembered even across restarting the browser.
+  The very first save on a fresh browser profile can't know where
+  this page itself lives (browsers don't expose that), so it opens
+  wherever your browser defaults to; pick your folder that first
+  time and it'll stick from then on.
+
+FIRMWARE TARGET
+  Dropdown above the step list: tags a sequence with which display
+  state/cycle in YOUR firmware it's meant to drive, plus an
+  optional Note field for extra context. Saved/exported with the
+  file. Ships with placeholder entries -- edit the FIRMWARE_TARGETS
+  array near the top of the <script> block to match your own
+  project's state names. An unrecognized saved target (old file,
+  renamed entry) falls back to "Other" with the original value
+  folded into the note, so nothing's silently lost.
 
 ALPHABET GOTCHAS
   R N D T B Q Y   Only ONE physical shape exists per letter -- typing
@@ -53,7 +80,11 @@ ALPHABET GOTCHAS
 FILENAME CONVENTION (Save data file)
   <word-code><speed>-<word-code><speed>-...
   speed codes: L / M / S, or C<ms> for custom
-  Case is never folded ("Hi" and "HI" are different words).
+  Spellings that render identically share one code -- "Ovr" and
+  "OVR" look the same on the display (R/N/D/T/B/Q/Y only have one
+  physical shape), so they're grouped as one word. Spellings that
+  genuinely render differently ("Hi" vs "HI" -- I/i are distinct
+  glyphs here) still get separate codes.
   Rename the download freely -- it doesn't affect the file contents.
 
 GOTCHAS
